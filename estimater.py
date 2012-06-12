@@ -109,6 +109,21 @@ class EstimaterSingleMAP(Estimater):
 #
 #
 
+def put_all_params_in_a_single_dict(params, group_params, subj_noise):
+
+    p_dict = params.copy()
+
+    #put subj params in p_dict
+    for idx, subj_dict in enumerate(group_params):
+        for (name, value) in subj_dict.iteritems():
+            p_dict[name + `idx`] = value
+
+    #put group noise in the p_dict
+    for (name, value) in subj_noise.iteritems():
+        p_dict[name + '_std'] = value
+
+    return p_dict
+
 def single_analysis(seed, estimater, kw_dict):
     """run analysis for a single Estimater.
     Input:
@@ -121,11 +136,15 @@ def single_analysis(seed, estimater, kw_dict):
             init - for the constructor of the estimater
             estimate - for Estimater().estimate
     """
+
+    #generate params and data
     np.random.seed(seed)
     params = hddm.generate.gen_rand_params(**kw_dict['params'])
     data, group_params = hddm.generate.gen_rand_data(params, **kw_dict['data'])
+    group_params = put_all_params_in_a_single_dict(params, group_params, kw_dict['data']['subj_noise'])
     data = DataFrame(data)
 
+    #estimate
     est = estimater(data, **kw_dict['init'])
     est.estimate(**kw_dict['estimate'])
     return group_params, est.get_stats()
@@ -164,7 +183,7 @@ def example_singleMAP():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_analysis(EstimaterSingleMAP, seed=1, n_runs=10, mpi=False, kw_dict=kw_dict)
+    results = multi_analysis(EstimaterSingleMAP, seed=1, n_runs=5, mpi=False, kw_dict=kw_dict)
 
     return results
 
@@ -194,4 +213,4 @@ def example_singleMLE():
 
 
 if __name__=='__main__':
-    example()
+    example_singleMAP()
