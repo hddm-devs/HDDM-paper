@@ -35,25 +35,49 @@ class EstimaterHDDM(Estimater):
         return self.model.stats()
 
 
-#Group MLE Estimater
-class EstimaterGroupMLE(Estimater):
+#Single MLE Estimater
+class EstimaterSingleMLE(Estimater):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
-        pass
 
-    def estimate(self):
-        pass
+        #create an HDDM model for each subject
+        data = hddm.utils.flip_errors(data)
+        self.grouped_data = data.groupby('subj_idx')
+        self.models = []
+        self.stats ={}
+
+
+    def estimate(self, include):
+        wiener_kw = {'err': 1e-4, 'nT':2, 'nZ':2,
+                         'use_adaptive':1, 'simps_err':1e-3}
+        wiener_kw.update(hddm.generate.gen_rand_params(include))
+
+        #define objective function
+        def mle_objective_func(values, include, wiener_kw):
+            wiener_kw.update(zip(include, values))
+            return -hddm.wfpt.wiener_like(**wiener_kw)
+
+        #estimate for each subject
+        for subj_idx, subj_data in self.grouped_data:
+            #estimate
+            wiener_kw['x'] = subj_data['rt'].values
+            values0 = np.array([wiener_kw[param] for param in include])
+            xopt = fmin_powell(mle_objective_func, values0, args=(include, wiener_kw))
+            #analyze
+            for i_param, param in enumerate(include):
+                self.stats[param + `subj_idx`] = xopt[i_param]
+
 
     def get_stats(self):
-        pass
+        return self.stats
 
 #Single MAP Estimater
 class EstimaterSingleMAP(Estimater):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
-        
+
         #create an HDDM model for each subject
         grouped_data = data.groupby('subj_idx')
         self.models = []
@@ -90,7 +114,7 @@ def single_analysis(seed, estimater, kw_dict):
     Input:
         seed <int> - a seed to generate params and data
         estimater <class> - the class of the Estimater
-        kw_dict - a dictionary that holds 4 keywords arguments dictionaries, each 
+        kw_dict - a dictionary that holds 4 keywords arguments dictionaries, each
             for a different fucntions:
             params - for hddm.generate.gen_rand_params
             data - for hddm.generate.gen_rand_data
@@ -121,7 +145,7 @@ def multi_analysis(estimater, seed, n_runs, mpi, kw_dict):
     return results
 
 
-def example():
+def example_singleMAP():
 
     #include params
     params = {'include': ('v','t','a')}
@@ -143,6 +167,31 @@ def example():
     results = multi_analysis(EstimaterSingleMAP, seed=1, n_runs=10, mpi=False, kw_dict=kw_dict)
 
     return results
+
+def example_singleMLE():
+
+    #include params
+    include = ('v','t','a')
+    params = {'include': include}
+
+    #kwards for gen_rand_data
+    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
+    data = {'subjs': 5, 'subj_noise': subj_noise}
+
+    #kwargs for initialize estimater
+    init = {}
+
+    #kwargs for estimation
+    estimate = {'include': include}
+
+    #creat kw_dict
+    kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
+
+    #run analysis
+    results = multi_analysis(EstimaterSingleMLE, seed=1, n_runs=4, mpi=False, kw_dict=kw_dict)
+
+    return results
+
 
 if __name__=='__main__':
     example()
