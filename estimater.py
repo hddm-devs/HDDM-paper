@@ -5,24 +5,20 @@ import numpy as np
 from scipy.optimize import fmin_powell
 from hddm.generate import gen_rand_params, gen_rand_data
 from multiprocessing import Pool
+from pandas import DataFrame
+
+
+# For each method that you would like to check you need do create a ass that inherits from
+# the Estimater class and implement the estimate and get_stats attributes.
 
 
 class Estimater(object):
-
     def __init__(self, data, include=(), pool_size=1, **kwargs):
 
         #save args
         self.data = data
         self.include = include
         self.stats = {}
-        self.init_model(data, **kwargs)
-    
-    def split_data_to_subjs(self, data):
-        subj_data = data.groupby('subj_idx').groups
-        for s in subj_data:
-            del s.subj_idx
-        return subj_data
-
 
 
 #HDDM Estimater
@@ -32,8 +28,8 @@ class EstimaterHDDM(Estimater):
         super(self.__class__, self).__init__(data, **kwargs)
         self.model = hddm.HDDM(data, **kwargs)
 
-    def estimate(self, iter, burn=0, thin=1):
-        self.model.sample(iter, burn, thin)
+    def estimate(self, **kwards):
+        self.model.sample(**kwards)
 
     def get_stats(self):
         return self.model.stats()
@@ -44,11 +40,7 @@ class EstimaterGroupMLE(Estimater):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
-        subj_data = self.split_data_to_subj(data)
-#        self.models = []
-#        for i_subj in range(len(subj_data)):
-#            model = hddm.HDDM(data, *args, **kwargs)
-#            self.models.append(model)
+        pass
 
     def estimate(self):
         pass
@@ -61,16 +53,18 @@ class EstimaterSingleMAP(Estimater):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
-        subj_data = self.split_data_to_subj(data)
+        
+        #create an HDDM model for each subject
+        grouped_data = data.groupby('subj_idx')
         self.models = []
-        for i_subj in range(len(subj_data)):
-            model = hddm.HDDM(data, **kwargs)
+        for subj_idx, subj_data in grouped_data:
+            model = hddm.HDDM(subj_data.to_records(), is_group_model=False, **kwargs)
             self.models.append(model)
 
     def estimate(self, pool_size=1, **map_kwargs):
-        
+
         single_map = lambda model: model.map(method='fmin_powell', **map_kwargs)
-        
+
         if pool_size > 1:
             pool = Pool(processes=pool_size)
             pool.map(single_map, self.models)
@@ -84,3 +78,71 @@ class EstimaterSingleMAP(Estimater):
             values_tuple = [(x.__name__ + str(idx), x.value) for x in model.mc.stochastics]
             stats.update(dict(values_tuple))
         return stats
+
+
+
+###################################
+#
+#
+
+def single_analysis(seed, estimater, kw_dict):
+    """run analysis for a single Estimater.
+    Input:
+        seed <int> - a seed to generate params and data
+        estimater <class> - the class of the Estimater
+        kw_dict - a dictionary that holds 4 keywords arguments dictionaries, each 
+            for a different fucntions:
+            params - for hddm.generate.gen_rand_params
+            data - for hddm.generate.gen_rand_data
+            init - for the constructor of the estimater
+            estimate - for Estimater().estimate
+    """
+    np.random.seed(seed)
+    params = hddm.generate.gen_rand_params(**kw_dict['params'])
+    data, group_params = hddm.generate.gen_rand_data(params, **kw_dict['data'])
+    data = DataFrame(data)
+
+    est = estimater(data, **kw_dict['init'])
+    est.estimate(**kw_dict['estimate'])
+    return group_params, est.get_stats()
+
+
+def multi_analysis(estimater, seed, n_runs, mpi, kw_dict):
+
+    analysis_func = lambda seed: single_analysis(seed, estimater, kw_dict)
+    seeds = range(seed, seed + n_runs)
+
+    if mpi:
+        import mpi4py_map
+        results = mpi4py_map.map(analysis_func, seeds)
+    else:
+        results = [analysis_func(x) for x in seeds]
+
+    return results
+
+
+def example():
+
+    #include params
+    params = {'include': ('v','t','a')}
+
+    #kwards for gen_rand_data
+    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
+    data = {'subjs': 5, 'subj_noise': subj_noise}
+
+    #kwargs for initialize estimater
+    init = {}
+
+    #kwargs for estimation
+    estimate = {'runs': 3}
+
+    #creat kw_dict
+    kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
+
+    #run analysis
+    results = multi_analysis(EstimaterSingleMAP, seed=1, n_runs=10, mpi=False, kw_dict=kw_dict)
+
+    return results
+
+if __name__=='__main__':
+    example()
