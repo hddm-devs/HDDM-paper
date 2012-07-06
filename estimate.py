@@ -1,8 +1,12 @@
 import hddm
 import numpy as np
+import pandas as pd
+import cPickle
+
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
 from pandas import DataFrame
+
 
 
 # For each method that you would like to check you need do create a ass that inherits from
@@ -98,7 +102,7 @@ class EstimationSingleMAP(Estimation):
             model.mcmc()
             values_tuple = [(x.__name__ + str(idx), x.value) for x in model.mc.stochastics]
             stats.update(dict(values_tuple))
-        return stats
+        return pd.Series(stats)
 
 
 
@@ -145,10 +149,11 @@ def single_analysis(seed_params, seed_data, estimation, kw_dict):
     #estimate
     est = estimation(data, **kw_dict['init'])
     est.estimate(**kw_dict['estimate'])
-    return group_params, est.get_stats()
+    return pd.Series(group_params), est.get_stats()
 
 
-def multi_analysis(estimation, seed_params, seed_data, n_runs, mpi, kw_dict, path = None):
+def multi_analysis(estimation, seed_params, seed_data, n_runs, mpi,
+                   kw_dict, path = None):
 
     analysis_func = lambda seeds: single_analysis(seeds[0], seeds[1], estimation, kw_dict)
 
@@ -163,12 +168,16 @@ def multi_analysis(estimation, seed_params, seed_data, n_runs, mpi, kw_dict, pat
     else:
         results = [analysis_func(x) for x in seeds]
 
-    if path is None:
-        return results
-    else:
-        pass
-#        with open(path, 'w') as file:
-#            cPickle.dump(results)
+    #get a dataframes from stats and from parma
+    all_params, all_stats = zip(*results)
+    all_params = pd.concat(all_params, 1).T
+    all_stats = pd.concat(all_stats, 1).T
+
+    if path is not None:
+        with open(path,'w') as file:
+            cPickle.dump([all_params, all_stats], file)
+
+    return all_params, all_stats
 
 
 def example_singleMAP():
@@ -190,10 +199,10 @@ def example_singleMAP():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_analysis(EstimationSingleMAP, seed_data=1, seed_params=1, 
-                             n_runs=3, mpi=False, kw_dict=kw_dict)
+    all_params, all_stats = multi_analysis(EstimationSingleMAP, seed_data=1, seed_params=1,
+                             n_runs=3, mpi=False, kw_dict=kw_dict, path='delete_me')
 
-    return results
+    return all_params, all_stats
 
 def example_singleMLE():
 
