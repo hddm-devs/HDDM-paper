@@ -9,10 +9,10 @@ from pandas import DataFrame
 
 
 # For each method that you would like to check you need do create a ass that inherits from
-# the Estimater class and implement the estimate and get_stats attributes.
+# the Estimation class and implement the estimate and get_stats attributes.
 
 
-class Estimater(object):
+class Estimation(object):
     def __init__(self, data, include=(), pool_size=1, **kwargs):
 
         #save args
@@ -21,8 +21,8 @@ class Estimater(object):
         self.stats = {}
 
 
-#HDDM Estimater
-class EstimaterHDDM(Estimater):
+#HDDM Estimation
+class EstimationHDDM(Estimation):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
@@ -35,8 +35,8 @@ class EstimaterHDDM(Estimater):
         return self.model.stats()
 
 
-#Single MLE Estimater
-class EstimaterSingleMLE(Estimater):
+#Single MLE Estimation
+class EstimationSingleMLE(Estimation):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
@@ -72,8 +72,8 @@ class EstimaterSingleMLE(Estimater):
     def get_stats(self):
         return self.stats
 
-#Single MAP Estimater
-class EstimaterSingleMAP(Estimater):
+#Single MAP Estimation
+class EstimationSingleMAP(Estimation):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
@@ -124,17 +124,17 @@ def put_all_params_in_a_single_dict(params, group_params, subj_noise):
 
     return p_dict
 
-def single_analysis(seed, estimater, kw_dict):
-    """run analysis for a single Estimater.
+def single_analysis(seed, estimation, kw_dict):
+    """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
-        estimater <class> - the class of the Estimater
+        estimation <class> - the class of the Estimation
         kw_dict - a dictionary that holds 4 keywords arguments dictionaries, each
             for a different fucntions:
             params - for hddm.generate.gen_rand_params
             data - for hddm.generate.gen_rand_data
-            init - for the constructor of the estimater
-            estimate - for Estimater().estimate
+            init - for the constructor of the estimation
+            estimate - for Estimation().estimate
     """
 
     #generate params and data
@@ -145,14 +145,14 @@ def single_analysis(seed, estimater, kw_dict):
     data = DataFrame(data)
 
     #estimate
-    est = estimater(data, **kw_dict['init'])
+    est = estimation(data, **kw_dict['init'])
     est.estimate(**kw_dict['estimate'])
     return group_params, est.get_stats()
 
 
-def multi_analysis(estimater, seed, n_runs, mpi, kw_dict):
+def multi_analysis(estimation, seed, n_runs, mpi, kw_dict):
 
-    analysis_func = lambda seed: single_analysis(seed, estimater, kw_dict)
+    analysis_func = lambda seed: single_analysis(seed, estimation, kw_dict)
     seeds = range(seed, seed + n_runs)
 
     if mpi:
@@ -173,7 +173,7 @@ def example_singleMAP():
     subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
     data = {'subjs': 5, 'subj_noise': subj_noise}
 
-    #kwargs for initialize estimater
+    #kwargs for initialize estimation
     init = {}
 
     #kwargs for estimation
@@ -183,7 +183,7 @@ def example_singleMAP():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_analysis(EstimaterSingleMAP, seed=1, n_runs=5, mpi=False, kw_dict=kw_dict)
+    results = multi_analysis(EstimationSingleMAP, seed=1, n_runs=5, mpi=False, kw_dict=kw_dict)
 
     return results
 
@@ -197,7 +197,7 @@ def example_singleMLE():
     subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
     data = {'subjs': 5, 'subj_noise': subj_noise}
 
-    #kwargs for initialize estimater
+    #kwargs for initialize Estimation
     init = {}
 
     #kwargs for estimation
@@ -207,7 +207,7 @@ def example_singleMLE():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_analysis(EstimaterSingleMLE, seed=1, n_runs=4, mpi=False, kw_dict=kw_dict)
+    results = multi_analysis(EstimationSingleMLE, seed=1, n_runs=4, mpi=False, kw_dict=kw_dict)
 
     return results
 
