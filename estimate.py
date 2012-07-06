@@ -1,9 +1,6 @@
 import hddm
-import time
-import kabuki
 import numpy as np
 from scipy.optimize import fmin_powell
-from hddm.generate import gen_rand_params, gen_rand_data
 from multiprocessing import Pool
 from pandas import DataFrame
 
@@ -124,7 +121,7 @@ def put_all_params_in_a_single_dict(params, group_params, subj_noise):
 
     return p_dict
 
-def single_analysis(seed, estimation, kw_dict):
+def single_analysis(seed_params, seed_data, estimation, kw_dict):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -138,8 +135,9 @@ def single_analysis(seed, estimation, kw_dict):
     """
 
     #generate params and data
-    np.random.seed(seed)
+    np.random.seed(seed_params)
     params = hddm.generate.gen_rand_params(**kw_dict['params'])
+    np.random.seed(seed_data)
     data, group_params = hddm.generate.gen_rand_data(params, **kw_dict['data'])
     group_params = put_all_params_in_a_single_dict(params, group_params, kw_dict['data']['subj_noise'])
     data = DataFrame(data)
@@ -150,10 +148,14 @@ def single_analysis(seed, estimation, kw_dict):
     return group_params, est.get_stats()
 
 
-def multi_analysis(estimation, seed, n_runs, mpi, kw_dict):
+def multi_analysis(estimation, seed_params, seed_data, n_runs, mpi, kw_dict, path = None):
 
-    analysis_func = lambda seed: single_analysis(seed, estimation, kw_dict)
-    seeds = range(seed, seed + n_runs)
+    analysis_func = lambda seeds: single_analysis(seeds[0], seeds[1], estimation, kw_dict)
+
+    #create seeds for params and data
+    p_seeds = seed_params + np.arange(n_runs)
+    d_seeds = seed_data + np.arange(n_runs)
+    seeds = zip(p_seeds, d_seeds)
 
     if mpi:
         import mpi4py_map
@@ -161,7 +163,12 @@ def multi_analysis(estimation, seed, n_runs, mpi, kw_dict):
     else:
         results = [analysis_func(x) for x in seeds]
 
-    return results
+    if path is None:
+        return results
+    else:
+        pass
+#        with open(path, 'w') as file:
+#            cPickle.dump(results)
 
 
 def example_singleMAP():
@@ -183,7 +190,8 @@ def example_singleMAP():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_analysis(EstimationSingleMAP, seed=1, n_runs=5, mpi=False, kw_dict=kw_dict)
+    results = multi_analysis(EstimationSingleMAP, seed_data=1, seed_params=1, 
+                             n_runs=3, mpi=False, kw_dict=kw_dict)
 
     return results
 
@@ -210,7 +218,3 @@ def example_singleMLE():
     results = multi_analysis(EstimationSingleMLE, seed=1, n_runs=4, mpi=False, kw_dict=kw_dict)
 
     return results
-
-
-if __name__=='__main__':
-    example_singleMAP()
