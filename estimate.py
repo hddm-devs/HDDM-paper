@@ -125,7 +125,7 @@ def put_all_params_in_a_single_dict(params, group_params, subj_noise):
 
     return p_dict
 
-def single_analysis(seed_params, seed_data, estimation, kw_dict):
+def single_recovery_fixed_n_samples(seed_params, seed_data, estimation, kw_dict):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -152,10 +152,11 @@ def single_analysis(seed_params, seed_data, estimation, kw_dict):
     return pd.Series(group_params), est.get_stats()
 
 
-def multi_analysis(estimation, seed_params, seed_data, n_runs, mpi,
+def multi_recovery_fixed_n_samples(estimation, seed_params, seed_data, n_runs, mpi,
                    kw_dict, path = None):
 
-    analysis_func = lambda seeds: single_analysis(seeds[0], seeds[1], estimation, kw_dict)
+    single = single_recovery_fixed_n_samples
+    analysis_func = lambda seeds: single(seeds[0], seeds[1], estimation, kw_dict)
 
     #create seeds for params and data
     p_seeds = seed_params + np.arange(n_runs)
@@ -175,7 +176,7 @@ def multi_analysis(estimation, seed_params, seed_data, n_runs, mpi,
 
     if path is not None:
         with open(path,'w') as file:
-            cPickle.dump([all_params, all_stats], file)
+            cPickle.dump([all_params, all_stats], file, cPickle.HIGHEST_PROTOCOL)
 
     return all_params, all_stats
 
@@ -199,7 +200,7 @@ def example_singleMAP():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    all_params, all_stats = multi_analysis(EstimationSingleMAP, seed_data=1, seed_params=1,
+    all_params, all_stats = multi_recovery_fixed_n_samples(EstimationSingleMAP, seed_data=1, seed_params=1,
                              n_runs=3, mpi=False, kw_dict=kw_dict, path='delete_me')
 
     return all_params, all_stats
@@ -224,6 +225,7 @@ def example_singleMLE():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_analysis(EstimationSingleMLE, seed=1, n_runs=4, mpi=False, kw_dict=kw_dict)
+    results = multi_recovery_fixed_n_samples(EstimationSingleMLE, seed=1, n_runs=4,
+                                             mpi=False, kw_dict=kw_dict, path='delete_me')
 
     return results
