@@ -26,14 +26,17 @@ class Estimation(object):
 class EstimationHDDM(Estimation):
 
     def __init__(self, data, **kwargs):
-        super(self.__class__, self).__init__(data, **kwargs)
+        super(EstimationHDDM, self).__init__(data, **kwargs)
         self.model = hddm.HDDM(data, **kwargs)
 
-    def estimate(self, **kwards):
-        self.model.sample(**kwards)
+    def estimate(self, **kwargs):
+        samples = kwargs.pop('samples', 10000)
+        self.model.sample(samples, **kwargs)
 
     def get_stats(self):
-        return self.model.stats()
+        stats = self.model.print_stats()
+
+        return stats['mean']
 
 
 #Single MLE Estimation
@@ -83,11 +86,10 @@ class EstimationSingleMAP(Estimation):
         grouped_data = data.groupby('subj_idx')
         self.models = []
         for subj_idx, subj_data in grouped_data:
-            model = hddm.HDDM(subj_data.to_records(), is_group_model=False, **kwargs)
+            model = hddm.HDDMTruncated(subj_data.to_records(), is_group_model=False, **kwargs)
             self.models.append(model)
 
     def estimate(self, pool_size=1, **map_kwargs):
-
         single_map = lambda model: model.map(method='fmin_powell', **map_kwargs)
 
         if pool_size > 1:
@@ -100,7 +102,7 @@ class EstimationSingleMAP(Estimation):
         stats = {}
         for idx, model in enumerate(self.models):
             model.mcmc()
-            values_tuple = [(x.__name__ + str(idx), x.value) for x in model.mc.stochastics]
+            values_tuple = [(x.__name__ + '_subj.' + str(idx), x.value) for x in model.mc.stochastics]
             stats.update(dict(values_tuple))
         return pd.Series(stats)
 
@@ -111,13 +113,12 @@ class EstimationSingleMAP(Estimation):
 #
 
 def put_all_params_in_a_single_dict(params, group_params, subj_noise):
-
     p_dict = params.copy()
 
     #put subj params in p_dict
     for idx, subj_dict in enumerate(group_params):
         for (name, value) in subj_dict.iteritems():
-            p_dict[name + `idx`] = value
+            p_dict['%s_subj.%i'%(name, idx)] = value
 
     #put group noise in the p_dict
     for (name, value) in subj_noise.iteritems():
@@ -149,8 +150,13 @@ def single_recovery_fixed_n_samples(seed_params, seed_data, estimation, kw_dict)
     #estimate
     est = estimation(data, **kw_dict['init'])
     est.estimate(**kw_dict['estimate'])
-    return pd.Series(group_params), est.get_stats()
+    return combine_params_and_stats(pd.Series(group_params), est.get_stats())
 
+def combine_params_and_stats(params, stats):
+    comb = pd.concat([params, stats], axis=1, keys=['truth', 'estimate'])
+    comb['MSE'] = np.asarray((comb['truth'] - comb['estimate'])**2, dtype=np.float32)
+
+    return comb
 
 def multi_recovery_fixed_n_samples(estimation, seed_params, seed_data, n_runs, mpi,
                    kw_dict, path = None):
@@ -169,16 +175,13 @@ def multi_recovery_fixed_n_samples(estimation, seed_params, seed_data, n_runs, m
     else:
         results = [analysis_func(x) for x in seeds]
 
-    #get a dataframes from stats and from parma
-    all_params, all_stats = zip(*results)
-    all_params = pd.concat(all_params, 1).T
-    all_stats = pd.concat(all_stats, 1).T
+    results = pd.concat(results, keys=seeds, names=('param_seed', 'name_seed'))
 
-    if path is not None:
-        with open(path,'w') as file:
-            cPickle.dump([all_params, all_stats], file, cPickle.HIGHEST_PROTOCOL)
+    # if path is not None:
+    #     with open(path,'w') as file:
+    #         cPickle.dump([all_params, all_stats], file, cPickle.HIGHEST_PROTOCOL)
 
-    return all_params, all_stats
+    return results
 
 
 def example_singleMAP():
@@ -201,7 +204,7 @@ def example_singleMAP():
 
     #run analysis
     all_params, all_stats = multi_recovery_fixed_n_samples(EstimationSingleMAP, seed_data=1, seed_params=1,
-                             n_runs=3, mpi=False, kw_dict=kw_dict, path='delete_me')
+                                                           n_runs=3, mpi=False, kw_dict=kw_dict, path='delete_me')
 
     return all_params, all_stats
 
@@ -229,3 +232,17 @@ def example_singleMLE():
                                              mpi=False, kw_dict=kw_dict, path='delete_me')
 
     return results
+
+def select_param(stats, param_names, also_contains='subj'):
+    if isinstance(param_names, str):
+        param_names = [param_names]
+
+    extracted = {}
+    index = stats.index
+    for name in param_names:
+        select = [ix for ix in index if ix[-1].startswith(name) and also_contains in ix[-1]]
+        extracted[name] = stats.ix[select]
+
+    return pd.concat(extracted, names=['params'])
+
+
