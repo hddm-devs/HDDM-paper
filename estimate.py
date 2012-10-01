@@ -31,6 +31,7 @@ class EstimationHDDM(Estimation):
 
     def estimate(self, **kwargs):
         samples = kwargs.pop('samples', 10000)
+        self.model.approximate_map()
         self.model.sample(samples, **kwargs)
 
     def get_stats(self):
@@ -49,7 +50,7 @@ class EstimationSingleMLE(Estimation):
         data = hddm.utils.flip_errors(data)
         self.grouped_data = data.groupby('subj_idx')
         self.models = []
-        self.stats ={}
+        self.stats = {}
 
 
     def estimate(self, include):
@@ -126,7 +127,7 @@ def put_all_params_in_a_single_dict(params, group_params, subj_noise):
 
     return p_dict
 
-def single_recovery_fixed_n_samples(seed_params, seed_data, estimation, kw_dict):
+def single_recovery_fixed_n_trials(seed_params, seed_data, estimation, kw_dict):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -158,30 +159,33 @@ def combine_params_and_stats(params, stats):
 
     return comb
 
-def multi_recovery_fixed_n_samples(estimation, seed_params, seed_data, n_runs, mpi,
-                   kw_dict, path = None):
+def multi_recovery_fixed_n_trials(estimation, seed_params,
+                                  seed_data, n_runs, kw_dict, path=None, view=None):
 
-    single = single_recovery_fixed_n_samples
-    analysis_func = lambda seeds: single(seeds[0], seeds[1], estimation, kw_dict)
+    single = single_recovery_fixed_n_trials
+    analysis_func = lambda seeds: single(view, seeds[0], seeds[1], estimation, kw_dict)
 
     #create seeds for params and data
     p_seeds = seed_params + np.arange(n_runs)
     d_seeds = seed_data + np.arange(n_runs)
-    seeds = zip(p_seeds, d_seeds)
 
-    if mpi:
-        import mpi4py_map
-        results = mpi4py_map.map(analysis_func, seeds)
-    else:
-        results = [analysis_func(x) for x in seeds]
+    p_results = {}
+    for p_seed in p_seeds:
+        d_results = {}
+        for d_seed in d_seeds:
+            if view is None:
+                d_results[d_results] = analysis_func((p_seed, d_seed))
+            else:
+                # append to job queue
+                d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, p_seed, d_seed, estimation, kw_dict)
 
-    results = pd.concat(results, keys=seeds, names=('param_seed', 'name_seed'))
+        p_results[p_seed] = d_results
 
     # if path is not None:
     #     with open(path,'w') as file:
     #         cPickle.dump([all_params, all_stats], file, cPickle.HIGHEST_PROTOCOL)
 
-    return results
+    return p_results
 
 
 def example_singleMAP():
@@ -203,7 +207,7 @@ def example_singleMAP():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    all_params, all_stats = multi_recovery_fixed_n_samples(EstimationSingleMAP, seed_data=1, seed_params=1,
+    all_params, all_stats = multi_recovery_fixed_n_trials(EstimationSingleMAP, seed_data=1, seed_params=1,
                                                            n_runs=3, mpi=False, kw_dict=kw_dict, path='delete_me')
 
     return all_params, all_stats
@@ -228,8 +232,8 @@ def example_singleMLE():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_recovery_fixed_n_samples(EstimationSingleMLE, seed=1, n_runs=4,
-                                             mpi=False, kw_dict=kw_dict, path='delete_me')
+    results = multi_recovery_fixed_n_trials(EstimationSingleMLE, seed=1, n_runs=4,
+                                            kw_dict=kw_dict, path='delete_me')
 
     return results
 

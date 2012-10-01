@@ -1,8 +1,13 @@
-import estimate as est
-import pandas as pd
-from copy import deepcopy
+from collections import OrderedDict
+from copy import deepcopy, copy
 import time
+
 import matplotlib.pyplot as plt
+import pandas as pd
+from IPython import parallel
+from IPython.parallel.client.asyncresult import AsyncResult
+import estimate as est
+
 
 def singleMAP_fixed_n_samples(n_subjs=8, n_samples=200):
 
@@ -33,64 +38,142 @@ def singleMAP_fixed_n_samples(n_subjs=8, n_samples=200):
 
     return results
 
-def compare_models(n_subjs=8, n_samples=(10, 40, 100)):
+def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_runs=5, view=None):
+    if not isinstance(n_subjs, (tuple, list)):
+        n_subjs = (n_subjs,)
+    if not isinstance(n_trials, (tuple, list)):
+        n_trials = (n_trials,)
+
     #include params
     params = {'include': ('v','t','a')}
-    recover = est.multi_recovery_fixed_n_samples
+    recover = est.multi_recovery_fixed_n_trials
 
-    models_samples = []
-    for cur_samples in n_samples:
-        #kwards for gen_rand_data
-        subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
-        data = {'subjs': n_subjs, 'subj_noise': subj_noise, 'size': cur_samples}
+    n_subjs_results = {}
+    for cur_subjs in n_subjs:
+        n_trials_results = {}
+        for cur_trials in n_trials:
+            #kwards for gen_rand_data
+            subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
+            data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials}
 
-        #kwargs for initialize estimation
-        init = {}
+            #kwargs for initialize estimation
+            init = {}
 
-        #kwargs for estimation
-        estimate = {'runs': 3}
+            #kwargs for estimation
+            estimate = {'runs': 3}
 
-        #creat kw_dict
-        kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
+            #creat kw_dict
+            kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
-        models_params = {est.EstimationSingleMAP: {'runs': 3},
-                         est.EstimationHDDM: {'samples': 5000, 'burn': 3000}}
+            models_params = OrderedDict()
+            models_params['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
+            models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 20000, 'burn': 15000}}
 
-        models_ests = []
-        for model, est_dict in models_params.iteritems():
-            kw_dict_model = deepcopy(kw_dict)
-            kw_dict_model['estimate'] = est_dict
-            #run analysis
-            models_ests.append(recover(model, seed_data=1, seed_params=1, n_runs=3, mpi=False,
-                                       kw_dict=kw_dict_model))
+            models_results = {}
+            for model_name, descr in models_params.iteritems():
+                kw_dict_model = deepcopy(kw_dict)
+                kw_dict_model['estimate'] = descr['params']
+                #run analysis
+                models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_runs=n_runs,
+                                                     kw_dict=kw_dict_model, view=view)
 
 
-        models_samples.append(pd.concat(models_ests, keys=['SingleMAP', 'HDDM'], names=['estimation']))
+            n_trials_results[cur_trials] = models_results
 
-    results = pd.concat(models_samples, keys=n_samples, names=['n_samples'])
-    results.index.names[-1] = 'ind_param'
+        n_subjs_results[cur_subjs] = n_trials_results
 
-    results = est.select_param(results, ['v', 'a', 't'])
-    return results
+    return n_subjs_results
 
-def plot_n_samples(res):
-    grouped = res.MSE.dropna().groupby(level=('n_samples', 'estimation', 'params')).mean()
+def plot_trial_exp(data):
+    grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'params')).mean()
 
     fig = plt.figure()
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
         ax = fig.add_subplot(3, 1, i+1)
         ax.set_title(param_name)
         for est_name, est_data in param_data.groupby(level=['estimation']):
-            ax.plot(est_data.index.get_level_values('n_samples'), est_data, label=est_name)
+            ax.plot(est_data.index.get_level_values('n_trials'), est_data, label=est_name)
 
-        ax.set_xlabel('n_samples')
+        ax.set_xlabel('trials')
         ax.set_ylabel('MSE')
 
     plt.legend()
 
+def plot_subj_exp(data):
+    grouped = data.MSE.dropna().groupby(level=('n_subjs', 'estimation', 'params')).mean()
+
+    fig = plt.figure()
+    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
+        ax = fig.add_subplot(3, 1, i+1)
+        ax.set_title(param_name)
+        for est_name, est_data in param_data.groupby(level=['estimation']):
+            ax.plot(est_data.index.get_level_values('n_subjs'), est_data, label=est_name)
+
+        ax.set_xlabel('subjs')
+        ax.set_ylabel('MSE')
+
+    plt.legend()
+
+def plot_recovery_exp(data):
+    grouped = data.dropna().groupby(level=('estimation', 'params'))
+
+    for i, (est_name, est_data) in enumerate(grouped.groupby(level=['estimation'])):
+        fig = plt.figure()
+        for j, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
+            ax = fig.add_subplot(3, 1, j+1)
+            ax.set_title(param_name)
+            ax.plot(param_data.truth, param_data.est, label=est_name)
+
+        ax.set_xlabel('truth')
+        ax.set_ylabel('estimated')
+
+        plt.legend()
 
 
+def concat_dicts(d, names=()):
+    name = names.pop(0) if len(names) != 0 else None
+
+    if isinstance(d.values()[0], pd.DataFrame):
+        return pd.concat(d, names=[name])
+    elif isinstance(d.values()[0], AsyncResult):
+        d_get = {k: v.get() for k, v in d.iteritems()}
+        return pd.concat(d_get, names=[name])
+    else:
+        sublevel_d = {}
+        for k, v in d.iteritems():
+            sublevel_d[k] = concat_dicts(v, names=copy(names))
+        return pd.concat(sublevel_d, names=[name])
+
+
+def merge_and_extract(data):
+    results = concat_dicts(data, names=['n_subjs', 'n_trials', 'estimation', 'name_seed', 'param_seed'])
+    results = est.select_param(results, ['v', 'a', 't'])
+
+    return results
 
 
 if __name__ == "__main__":
-    singleMAP_fixed_n_samples()
+    c = parallel.Client(profile='local')
+    view = c.load_balanced_view()
+
+    trial_exp = run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_runs=5, view=view)
+    subj_exp = run_experiments(n_subjs=(5, 10, 12, 20), n_trials=(20), n_runs=5, view=view)
+    recovery_exp = run_experiments(n_subjs=(12), n_trials=(30), n_runs=20, view=view)
+
+    trial_data = merge_and_extract(trial_exp)
+    plot_trial_exp(trial_data)
+    plt.savefig('trial_exp.png')
+    plt.savefig('trial_exp.svg')
+
+    subj_data = merge_and_extract(subj_exp)
+    plot_subj_exp(subj_data)
+    plt.savefig('subj_exp.png')
+    plt.savefig('subj_exp.svg')
+
+    recovery_data = merge_and_extract(recovery_exp)
+    plot_recovery_exp(recovery_data)
+    plt.savefig('recovery_exp.png')
+    plt.savefig('recovery_exp.svg')
+
+    #a = view.apply_async(lambda x: x**2, 3)
+    #print a.get()
