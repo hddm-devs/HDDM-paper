@@ -1,9 +1,13 @@
 from collections import OrderedDict
 from copy import deepcopy, copy
 import time
+import argparse
+import sys
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+
 from IPython import parallel
 from IPython.parallel.client.asyncresult import AsyncResult
 import estimate as est
@@ -115,8 +119,6 @@ def plot_subj_exp(data):
     plt.legend()
 
 def plot_recovery_exp(data):
-    grouped = data.dropna().groupby(level=('estimation', 'params'))
-
     for i, (est_name, est_data) in enumerate(data.dropna().groupby(level=['estimation'])):
         for j, (param_name, param_data) in enumerate(est_data.groupby(level=('params',))):
             fig = plt.figure()
@@ -161,27 +163,37 @@ def merge_and_extract(data):
 
 
 if __name__ == "__main__":
-    c = parallel.Client(profile='local')
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('profile', type=str,
+                        help='Which IPython environment to use.')
+
+    result = parser.parse_args()
+
+    c = parallel.Client(profile=result.profile)
     view = c.load_balanced_view()
 
-    trial_exp = run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_runs=5, view=view)
-    subj_exp = run_experiments(n_subjs=(5, 10, 12, 20), n_trials=(20), n_runs=5, view=view)
+    trial_exp = run_experiments(n_subjs=(12,), n_trials=np.linspace(10, 100, 10), n_runs=10, view=view)
+    subj_exp = run_experiments(n_subjs=np.linspace(4, 30, 2), n_trials=(20), n_runs=10, view=view)
     recovery_exp = run_experiments(n_subjs=(12), n_trials=(30), n_runs=20, view=view)
 
     trial_data = merge_and_extract(trial_exp)
+    trial_data.save('trial_data.dat')
     plot_trial_exp(trial_data)
     plt.savefig('trial_exp.png')
     plt.savefig('trial_exp.svg')
 
     subj_data = merge_and_extract(subj_exp)
+    subj_data.save('subj_data.dat')
     plot_subj_exp(subj_data)
     plt.savefig('subj_exp.png')
     plt.savefig('subj_exp.svg')
 
     recovery_data = merge_and_extract(recovery_exp)
+    recovery_data.save('recovery_data.dat')
     plot_recovery_exp(recovery_data)
     plt.savefig('recovery_exp.png')
     plt.savefig('recovery_exp.svg')
 
+    sys.exit(0)
     #a = view.apply_async(lambda x: x**2, 3)
     #print a.get()
