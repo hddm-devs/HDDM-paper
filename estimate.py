@@ -37,7 +37,7 @@ class EstimationHDDM(Estimation):
     def get_stats(self):
         stats = self.model.print_stats()
 
-        return stats['mean']
+        return np.float32(stats['mean'])
 
 
 #Single MLE Estimation
@@ -73,7 +73,6 @@ class EstimationSingleMLE(Estimation):
             for i_param, param in enumerate(include):
                 self.stats[param + `subj_idx`] = xopt[i_param]
 
-
     def get_stats(self):
         return self.stats
 
@@ -103,7 +102,7 @@ class EstimationSingleMAP(Estimation):
         stats = {}
         for idx, model in enumerate(self.models):
             model.mcmc()
-            values_tuple = [(x.__name__ + '_subj.' + str(idx), x.value) for x in model.mc.stochastics]
+            values_tuple = [(x.__name__ + '_subj.' + str(idx), float(x.value)) for x in model.mc.stochastics]
             stats.update(dict(values_tuple))
         return pd.Series(stats)
 
@@ -163,7 +162,7 @@ def multi_recovery_fixed_n_trials(estimation, seed_params,
                                   seed_data, n_runs, kw_dict, path=None, view=None):
 
     single = single_recovery_fixed_n_trials
-    analysis_func = lambda seeds: single(view, seeds[0], seeds[1], estimation, kw_dict)
+    analysis_func = lambda seeds: single(seeds[0], seeds[1], estimation, kw_dict)
 
     #create seeds for params and data
     p_seeds = seed_params + np.arange(n_runs)
@@ -174,7 +173,7 @@ def multi_recovery_fixed_n_trials(estimation, seed_params,
         d_results = {}
         for d_seed in d_seeds:
             if view is None:
-                d_results[d_results] = analysis_func((p_seed, d_seed))
+                d_results[d_seed] = analysis_func((p_seed, d_seed))
             else:
                 # append to job queue
                 d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, p_seed, d_seed, estimation, kw_dict)

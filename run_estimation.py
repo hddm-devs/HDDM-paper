@@ -43,9 +43,9 @@ def singleMAP_fixed_n_samples(n_subjs=8, n_samples=200):
     return results
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_runs=5, view=None):
-    if not isinstance(n_subjs, (tuple, list)):
+    if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
-    if not isinstance(n_trials, (tuple, list)):
+    if not isinstance(n_trials, (tuple, list, np.ndarray)):
         n_trials = (n_trials,)
 
     #include params
@@ -89,14 +89,16 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_runs=5, view=None):
     return n_subjs_results
 
 def plot_trial_exp(data):
-    grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'params')).mean()
+    grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'params')).describe()
 
     fig = plt.figure()
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
         ax = fig.add_subplot(3, 1, i+1)
         ax.set_title(param_name)
         for est_name, est_data in param_data.groupby(level=['estimation']):
-            ax.plot(est_data.index.get_level_values('n_trials'), est_data, label=est_name)
+            ax.plot(est_data.index.get_level_values('n_trials'),
+                    est_data.mean, yerr=est_data.std, label=est_name,
+                    marker='o')
 
         ax.set_xlabel('trials')
         ax.set_ylabel('MSE')
@@ -104,14 +106,16 @@ def plot_trial_exp(data):
     plt.legend()
 
 def plot_subj_exp(data):
-    grouped = data.MSE.dropna().groupby(level=('n_subjs', 'estimation', 'params')).mean()
+    grouped = data.MSE.dropna().groupby(level=('n_subjs', 'estimation', 'params')).describe()
 
     fig = plt.figure()
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
         ax = fig.add_subplot(3, 1, i+1)
         ax.set_title(param_name)
         for est_name, est_data in param_data.groupby(level=['estimation']):
-            ax.plot(est_data.index.get_level_values('n_subjs'), est_data, label=est_name)
+            ax.plot(est_data.index.get_level_values('n_subjs'),
+                    est_data.mean, yerr=est_data.std, label=est_name,
+                    marker='o')
 
         ax.set_xlabel('subjs')
         ax.set_ylabel('MSE')
@@ -124,15 +128,16 @@ def plot_recovery_exp(data):
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             ax.set_title(param_name)
-            ax.plot(param_data.truth, param_data.estimate, 'x', label=est_name)
+            #ax.plot(param_data.truth, param_data.estimate, 'x', label=est_name)
 
             mini = min(param_data.truth.min(), param_data.estimate.min())
             maxi = max(param_data.truth.max(), param_data.estimate.max())
             ax.set_xlim((mini, maxi))
             ax.set_ylim((mini, maxi))
-
             ax.set_xlabel('truth')
             ax.set_ylabel('estimated')
+            kwargs = {'gridsize': 100, 'bins': 'log', 'extent': (mini, maxi, mini, maxi)}
+            ax.hexbin(param_data.truth, param_data.estimate, label='post pred lb', **kwargs)
 
             plt.legend()
 
@@ -163,36 +168,54 @@ def merge_and_extract(data):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('profile', type=str,
+    parser = argparse.ArgumentParser(description='Run HDDM experiments.')
+    parser.add_argument('--profile', action='store', dest='profile', type=str, default='mpi',
                         help='Which IPython environment to use.')
+    parser.add_argument('-r', action='store_true', dest='run', default=False,
+                        help='Whether to run simulations.')
+    parser.add_argument('-a', action='store_true', dest='analyze', default=False,
+                        help='Whether to analyze and plot results.')
+    parser.add_argument('-l', action='store_true', dest='load', default=False,
+                        help='Whether to load results from file.')
+    parser.add_argument('--parallel', action='store_true', dest='parallel', default=False,
+                        help='Whether to use IPython parallelize.')
 
     result = parser.parse_args()
 
-    c = parallel.Client(profile=result.profile)
-    view = c.load_balanced_view()
+    if result.parallel:
+        c = parallel.Client(profile=result.profile)
+        view = c.load_balanced_view()
+    else:
+        view = None
 
-    trial_exp = run_experiments(n_subjs=(12,), n_trials=np.linspace(10, 100, 10), n_runs=10, view=view)
-    subj_exp = run_experiments(n_subjs=np.linspace(4, 30, 2), n_trials=(20), n_runs=10, view=view)
-    recovery_exp = run_experiments(n_subjs=(12), n_trials=(30), n_runs=20, view=view)
+    if result.run:
+        trial_exp = run_experiments(n_subjs=(12,), n_trials=list(np.arange(10, 100, 10)), n_runs=10, view=view)
+        subj_exp = run_experiments(n_subjs=list(np.arange(4, 30, 2)), n_trials=(20), n_runs=10, view=view)
+        recovery_exp = run_experiments(n_subjs=(12), n_trials=(30), n_runs=20, view=view)
 
-    trial_data = merge_and_extract(trial_exp)
-    trial_data.save('trial_data.dat')
-    plot_trial_exp(trial_data)
-    plt.savefig('trial_exp.png')
-    plt.savefig('trial_exp.svg')
+        trial_data = merge_and_extract(trial_exp)
+        subj_data = merge_and_extract(subj_exp)
+        recovery_data = merge_and_extract(recovery_exp)
 
-    subj_data = merge_and_extract(subj_exp)
-    subj_data.save('subj_data.dat')
-    plot_subj_exp(subj_data)
-    plt.savefig('subj_exp.png')
-    plt.savefig('subj_exp.svg')
+        trial_data.save('trial.dat')
+        subj_data.save('subj.dat')
+        recovery_data.save('recovery.dat')
 
-    recovery_data = merge_and_extract(recovery_exp)
-    recovery_data.save('recovery_data.dat')
-    plot_recovery_exp(recovery_data)
-    plt.savefig('recovery_exp.png')
-    plt.savefig('recovery_exp.svg')
+    if result.load:
+        trial_data = pd.load('trial.dat')
+        subj_data = pd.load('subj.dat')
+        recovery_data = pd.load('recovery.dat')
+
+    if result.analyze:
+        plot_trial_exp(trial_data)
+        plt.savefig('trial_exp.png')
+        plt.savefig('trial_exp.svg')
+
+        plot_subj_exp(subj_data)
+        plt.savefig('subj_exp.png')
+        plt.savefig('subj_exp.svg')
+
+        plot_recovery_exp(recovery_data)
 
     sys.exit(0)
     #a = view.apply_async(lambda x: x**2, 3)
