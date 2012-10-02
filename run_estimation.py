@@ -117,17 +117,25 @@ def plot_subj_exp(data):
 def plot_recovery_exp(data):
     grouped = data.dropna().groupby(level=('estimation', 'params'))
 
-    for i, (est_name, est_data) in enumerate(grouped.groupby(level=['estimation'])):
-        fig = plt.figure()
-        for j, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
-            ax = fig.add_subplot(3, 1, j+1)
+    for i, (est_name, est_data) in enumerate(data.dropna().groupby(level=['estimation'])):
+        for j, (param_name, param_data) in enumerate(est_data.groupby(level=('params',))):
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
             ax.set_title(param_name)
-            ax.plot(param_data.truth, param_data.est, label=est_name)
+            ax.plot(param_data.truth, param_data.estimate, 'x', label=est_name)
 
-        ax.set_xlabel('truth')
-        ax.set_ylabel('estimated')
+            mini = min(param_data.truth.min(), param_data.estimate.min())
+            maxi = max(param_data.truth.max(), param_data.estimate.max())
+            ax.set_xlim((mini, maxi))
+            ax.set_ylim((mini, maxi))
 
-        plt.legend()
+            ax.set_xlabel('truth')
+            ax.set_ylabel('estimated')
+
+            plt.legend()
+
+            plt.savefig('recovery_exp_%s_%s.png'%(est_name, param_name))
+            plt.savefig('recovery_exp_%s_%s.svg'%(est_name, param_name))
 
 
 def concat_dicts(d, names=()):
