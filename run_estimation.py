@@ -89,38 +89,41 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_runs=5, view=None):
     return n_subjs_results
 
 def plot_trial_exp(data):
-    grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'params')).describe()
+    grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'params')).agg((np.mean, np.std))
 
     fig = plt.figure()
+    plt.subplots_adjust(hspace=.5)
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
         ax = fig.add_subplot(3, 1, i+1)
         ax.set_title(param_name)
+        ax.set_xlim(5, 95)
         for est_name, est_data in param_data.groupby(level=['estimation']):
-            ax.plot(est_data.index.get_level_values('n_trials'),
-                    est_data.mean, yerr=est_data.std, label=est_name,
-                    marker='o')
+            ax.errorbar(est_data.index.get_level_values('n_trials'),
+                        est_data['mean'], label=est_name, lw=2.,
+                        marker='o')
 
-        ax.set_xlabel('trials')
         ax.set_ylabel('MSE')
 
-    plt.legend()
+    ax.set_xlabel('trials')
+    plt.legend(loc=0)
 
 def plot_subj_exp(data):
-    grouped = data.MSE.dropna().groupby(level=('n_subjs', 'estimation', 'params')).describe()
+    grouped = data.MSE.dropna().groupby(level=('n_subjs', 'estimation', 'params')).agg((np.mean, np.std))
 
     fig = plt.figure()
+    plt.subplots_adjust(hspace=.5)
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
         ax = fig.add_subplot(3, 1, i+1)
         ax.set_title(param_name)
+        ax.set_xlim(2, 30)
         for est_name, est_data in param_data.groupby(level=['estimation']):
-            ax.plot(est_data.index.get_level_values('n_subjs'),
-                    est_data.mean, yerr=est_data.std, label=est_name,
-                    marker='o')
+            ax.errorbar(est_data.index.get_level_values('n_subjs'),
+                        est_data['mean'], label=est_name, lw=2.,
+                        marker='o')
 
-        ax.set_xlabel('subjs')
         ax.set_ylabel('MSE')
-
-    plt.legend()
+    ax.set_xlabel('subjs')
+    plt.legend(loc=0)
 
 def plot_recovery_exp(data):
     for i, (est_name, est_data) in enumerate(data.dropna().groupby(level=['estimation'])):
