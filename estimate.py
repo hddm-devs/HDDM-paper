@@ -159,14 +159,14 @@ def combine_params_and_stats(params, stats):
     return comb
 
 def multi_recovery_fixed_n_trials(estimation, seed_params,
-                                  seed_data, n_runs, kw_dict, path=None, view=None):
+                                  seed_data, n_params, n_datasets, kw_dict, path=None, view=None):
 
     single = single_recovery_fixed_n_trials
     analysis_func = lambda seeds: single(seeds[0], seeds[1], estimation, kw_dict)
 
     #create seeds for params and data
-    p_seeds = seed_params + np.arange(n_runs)
-    d_seeds = seed_data + np.arange(n_runs)
+    p_seeds = seed_params + np.arange(n_params)
+    d_seeds = seed_data + np.arange(n_datasets)
 
     p_results = {}
     for p_seed in p_seeds:

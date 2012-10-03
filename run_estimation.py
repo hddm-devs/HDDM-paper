@@ -42,14 +42,14 @@ def singleMAP_fixed_n_samples(n_subjs=8, n_samples=200):
 
     return results
 
-def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_runs=5, view=None):
+def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'), view=None):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
         n_trials = (n_trials,)
 
     #include params
-    params = {'include': ('v','t','a')}
+    params = {'include': include}
     recover = est.multi_recovery_fixed_n_trials
 
     n_subjs_results = {}
@@ -71,15 +71,15 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_runs=5, view=None):
 
             models_params = OrderedDict()
             models_params['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
-            models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 20000, 'burn': 15000}}
+            models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 25000, 'burn': 20000}}
 
             models_results = {}
             for model_name, descr in models_params.iteritems():
                 kw_dict_model = deepcopy(kw_dict)
                 kw_dict_model['estimate'] = descr['params']
                 #run analysis
-                models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_runs=n_runs,
-                                                     kw_dict=kw_dict_model, view=view)
+                models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
+                                                     n_datasets=n_datasets, kw_dict=kw_dict_model, view=view)
 
 
             n_trials_results[cur_trials] = models_results
@@ -125,7 +125,7 @@ def plot_subj_exp(data):
     ax.set_xlabel('subjs')
     plt.legend(loc=0)
 
-def plot_recovery_exp(data):
+def plot_recovery_exp(data, tag=''):
     for i, (est_name, est_data) in enumerate(data.dropna().groupby(level=['estimation'])):
         for j, (param_name, param_data) in enumerate(est_data.groupby(level=('params',))):
             fig = plt.figure()
@@ -144,8 +144,8 @@ def plot_recovery_exp(data):
 
             plt.legend()
 
-            plt.savefig('recovery_exp_%s_%s.png'%(est_name, param_name))
-            plt.savefig('recovery_exp_%s_%s.svg'%(est_name, param_name))
+            plt.savefig('recovery_exp_%s_%s_%s.png'%(est_name, param_name, tag))
+            plt.savefig('recovery_exp_%s_%s_%s.svg'%(est_name, param_name, tag))
 
 
 def concat_dicts(d, names=()):
@@ -190,8 +190,23 @@ if __name__ == "__main__":
                         help='Run recovery experiment.')
     parser.add_argument('--all', action='store_true', dest='all', default=False,
                         help='Run all of the above experiments.')
+    parser.add_argument('-st', action='store_true', dest='st', default=False)
+    parser.add_argument('-sv', action='store_true', dest='sv', default=False)
+    parser.add_argument('-sz', action='store_true', dest='sz', default=False)
+    parser.add_argument('-z', action='store_true', dest='z', default=False)
+
+    include=['v','t','a']
 
     result = parser.parse_args()
+
+    if result.st:
+        include.append('st')
+    if result.sv:
+        include.append('sv')
+    if result.sz:
+        include.append('sz')
+    if result.z:
+        include.append('z')
 
     run_trials, run_subjs, run_recovery = result.trials, result.subjs, result.recovery
     if result.all:
@@ -205,43 +220,43 @@ if __name__ == "__main__":
 
     if result.run:
         if run_trials:
-            trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_runs=20, view=view)
+            trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), include=include, view=view)
         if run_subjs:
-            subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, n_runs=20, view=view)
+            subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, include=include, view=view)
         if run_recovery:
-            recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_runs=20, view=view)
+            recovery_exp = run_experiments(n_subjs=12, n_trials=30, include=include, view=view)
 
         if run_trials:
             trial_data = merge_and_extract(trial_exp)
-            trial_data.save('trial.dat')
+            trial_data.save('trial'+str(include)+'.dat')
         if run_subjs:
             subj_data = merge_and_extract(subj_exp)
-            subj_data.save('subj.dat')
+            subj_data.save('subj'+str(include)+'.dat')
         if run_recovery:
             recovery_data = merge_and_extract(recovery_exp)
-            recovery_data.save('recovery.dat')
+            recovery_data.save('recovery'+str(include)+'.dat')
 
     if result.load:
         if run_trials:
-            trial_data = pd.load('trial.dat')
+            trial_data = pd.load('trial'+str(include)+'.dat')
         if run_subjs:
-            subj_data = pd.load('subj.dat')
+            subj_data = pd.load('subj'+str(include)+'.dat')
         if run_recovery:
-            recovery_data = pd.load('recovery.dat')
+            recovery_data = pd.load('recovery'+str(include)+'.dat')
 
     if result.analyze:
         if run_trials:
             plot_trial_exp(trial_data)
-            plt.savefig('trial_exp.png')
-            plt.savefig('trial_exp.svg')
+            plt.savefig('trial_exp'+str(include)+'.png')
+            plt.savefig('trial_exp'+str(include)+'.svg')
 
         if run_subjs:
             plot_subj_exp(subj_data)
-            plt.savefig('subj_exp.png')
-            plt.savefig('subj_exp.svg')
+            plt.savefig('subj_exp'+str(include)+'.png')
+            plt.savefig('subj_exp'+str(include)+'.svg')
 
         if run_recovery:
-            plot_recovery_exp(recovery_data)
+            plot_recovery_exp(recovery_data, tag=str(include))
 
     sys.exit(0)
     #a = view.apply_async(lambda x: x**2, 3)
