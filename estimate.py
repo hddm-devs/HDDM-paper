@@ -106,6 +106,30 @@ class EstimationSingleMAP(Estimation):
             stats.update(dict(values_tuple))
         return pd.Series(stats)
 
+#Single G^2 Estimation
+class EstimationSingleQuantiles(Estimation):
+
+    def __init__(self, data, **kwargs):
+        super(self.__class__, self).__init__(data, **kwargs)
+
+        #create an HDDM model for each subject
+        grouped_data = data.groupby('subj_idx')
+        self.models = []
+        for subj_idx, subj_data in grouped_data:
+            model = hddm.HDDMTruncated(subj_data.to_records(), is_group_model=False, **kwargs)
+            self.models.append(model)
+#        kabuki.debug_here()
+
+    def estimate(self, **quantiles_kwargs):
+        self.results = [model.optimize(**quantiles_kwargs) for model in self.models]
+
+    def get_stats(self):
+        stats = {}
+        for idx, res in enumerate(self.results):
+            values_tuple = [(key + '_subj.' + str(idx), float(value)) for (key,value) in res.iteritems()]
+            stats.update(dict(values_tuple))
+        return pd.Series(stats)
+
 
 
 ###################################
@@ -235,6 +259,32 @@ def example_singleMLE():
                                             kw_dict=kw_dict, path='delete_me')
 
     return results
+
+def example_singleQuantiles():
+
+    #include params
+    include = ('v','t','a')
+    params = {'include': include}
+
+    #kwards for gen_rand_data
+    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
+    data = {'subjs': 4, 'subj_noise': subj_noise, 'size': 200}
+
+    #kwargs for initialize Estimation
+    init = {}
+
+    #kwargs for estimation
+    estimate = {'method': 'gsquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}
+
+    #creat kw_dict
+    kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
+
+    #run analysis
+    results = multi_recovery_fixed_n_trials(EstimationSingleQuantiles, seed_data=1, seed_params=1, n_runs=2,
+                                            kw_dict=kw_dict, path='delete_me')
+
+    return results
+
 
 def select_param(stats, param_names, also_contains='subj'):
     if isinstance(param_names, str):
