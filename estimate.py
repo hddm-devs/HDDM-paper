@@ -107,7 +107,7 @@ class EstimationSingleMAP(Estimation):
         return pd.Series(stats)
 
 #Single G^2 Estimation
-class EstimationSingleQuantiles(Estimation):
+class EstimationSingleOptimization(Estimation):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
@@ -130,6 +130,19 @@ class EstimationSingleQuantiles(Estimation):
             stats.update(dict(values_tuple))
         return pd.Series(stats)
 
+
+#HDDM Estimation
+class EstimationGroupOptimization(Estimation):
+
+    def __init__(self, data, **kwargs):
+        super(self.__class__, self).__init__(data, **kwargs)
+        self.model = hddm.HDDM(data, **kwargs)
+
+    def estimate(self, **kwargs):
+        self.results = self.model.optimize(**kwargs)
+
+    def get_stats(self):
+        return pd.Series(self.results)
 
 
 ###################################
@@ -260,7 +273,7 @@ def example_singleMLE():
 
     return results
 
-def example_singleQuantiles():
+def example_singleOptimization():
 
     #include params
     include = ('v','t','a')
@@ -280,8 +293,33 @@ def example_singleQuantiles():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_recovery_fixed_n_trials(EstimationSingleQuantiles, seed_data=1, seed_params=1, n_runs=2,
-                                            kw_dict=kw_dict, path='delete_me')
+    results = multi_recovery_fixed_n_trials(EstimationSingleOptimization, seed_data=1, seed_params=1, n_params=2,
+                                            n_datasets=1, kw_dict=kw_dict, path='delete_me')
+
+    return results
+
+def example_GroupOptimization():
+
+    #include params
+    include = ('v','t','a')
+    params = {'include': include}
+
+    #kwards for gen_rand_data
+    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
+    data = {'subjs': 4, 'subj_noise': subj_noise, 'size': 200}
+
+    #kwargs for initialize Estimation
+    init = {}
+
+    #kwargs for estimation
+    estimate = {'method': 'gsquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}
+
+    #creat kw_dict
+    kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
+
+    #run analysis
+    results = multi_recovery_fixed_n_trials(EstimationGroupOptimization, seed_data=1, seed_params=1, n_params=2, 
+                                            n_datasets=1, kw_dict=kw_dict, path='delete_me')
 
     return results
 
