@@ -171,19 +171,31 @@ def merge_and_extract(data):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run HDDM experiments.')
+    parser = argparse.ArgumentParser(description='Run HDDM experiments.', add_help=True)
     parser.add_argument('--profile', action='store', dest='profile', type=str, default='mpi',
-                        help='Which IPython environment to use.')
+                        help='IPython environment to use.')
     parser.add_argument('-r', action='store_true', dest='run', default=False,
-                        help='Whether to run simulations.')
+                        help='Run simulations.')
     parser.add_argument('-a', action='store_true', dest='analyze', default=False,
-                        help='Whether to analyze and plot results.')
+                        help='Analyze and plot results.')
     parser.add_argument('-l', action='store_true', dest='load', default=False,
-                        help='Whether to load results from file.')
+                        help='Load results from file.')
     parser.add_argument('--parallel', action='store_true', dest='parallel', default=False,
-                        help='Whether to use IPython parallelize.')
+                        help='Use IPython parallel.')
+    parser.add_argument('--trials', action='store_true', dest='trials', default=False,
+                        help='Run trial experiment.')
+    parser.add_argument('--subjs', action='store_true', dest='subjs', default=False,
+                        help='Run subject experiment.')
+    parser.add_argument('--recovery', action='store_true', dest='recovery', default=False,
+                        help='Run recovery experiment.')
+    parser.add_argument('--all', action='store_true', dest='all', default=False,
+                        help='Run all of the above experiments.')
 
     result = parser.parse_args()
+
+    run_trials, run_subjs, run_recovery = result.trials, result.subjs, result.recovery
+    if result.all:
+        run_trials, run_subjs, run_recovery = True, True, True
 
     if result.parallel:
         c = parallel.Client(profile=result.profile)
@@ -192,33 +204,44 @@ if __name__ == "__main__":
         view = None
 
     if result.run:
-        trial_exp = run_experiments(n_subjs=(12,), n_trials=list(np.arange(10, 100, 10)), n_runs=10, view=view)
-        subj_exp = run_experiments(n_subjs=list(np.arange(4, 30, 2)), n_trials=(20), n_runs=10, view=view)
-        recovery_exp = run_experiments(n_subjs=(12), n_trials=(30), n_runs=20, view=view)
+        if run_trials:
+            trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_runs=20, view=view)
+        if run_subjs:
+            subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, n_runs=20, view=view)
+        if run_recovery:
+            recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_runs=20, view=view)
 
-        trial_data = merge_and_extract(trial_exp)
-        subj_data = merge_and_extract(subj_exp)
-        recovery_data = merge_and_extract(recovery_exp)
-
-        trial_data.save('trial.dat')
-        subj_data.save('subj.dat')
-        recovery_data.save('recovery.dat')
+        if run_trials:
+            trial_data = merge_and_extract(trial_exp)
+            trial_data.save('trial.dat')
+        if run_subjs:
+            subj_data = merge_and_extract(subj_exp)
+            subj_data.save('subj.dat')
+        if run_recovery:
+            recovery_data = merge_and_extract(recovery_exp)
+            recovery_data.save('recovery.dat')
 
     if result.load:
-        trial_data = pd.load('trial.dat')
-        subj_data = pd.load('subj.dat')
-        recovery_data = pd.load('recovery.dat')
+        if run_trials:
+            trial_data = pd.load('trial.dat')
+        if run_subjs:
+            subj_data = pd.load('subj.dat')
+        if run_recovery:
+            recovery_data = pd.load('recovery.dat')
 
     if result.analyze:
-        plot_trial_exp(trial_data)
-        plt.savefig('trial_exp.png')
-        plt.savefig('trial_exp.svg')
+        if run_trials:
+            plot_trial_exp(trial_data)
+            plt.savefig('trial_exp.png')
+            plt.savefig('trial_exp.svg')
 
-        plot_subj_exp(subj_data)
-        plt.savefig('subj_exp.png')
-        plt.savefig('subj_exp.svg')
+        if run_subjs:
+            plot_subj_exp(subj_data)
+            plt.savefig('subj_exp.png')
+            plt.savefig('subj_exp.svg')
 
-        plot_recovery_exp(recovery_data)
+        if run_recovery:
+            plot_recovery_exp(recovery_data)
 
     sys.exit(0)
     #a = view.apply_async(lambda x: x**2, 3)
