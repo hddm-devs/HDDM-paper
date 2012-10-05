@@ -61,7 +61,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
             data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials}
 
             #kwargs for initialize estimation
-            init = {}
+            init = {'include': include}
 
             #kwargs for estimation
             estimate = {'runs': 3}
@@ -71,7 +71,8 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
             models_params = OrderedDict()
             models_params['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
-            models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 25000, 'burn': 20000}}
+            models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000}}
+            models_params['Quantiles'] = {'estimator': est.EstimationSingleOptimization, 'params': {'method': 'gsquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
 
             models_results = {}
             for model_name, descr in models_params.iteritems():
@@ -112,8 +113,11 @@ def plot_subj_exp(data):
 
     fig = plt.figure()
     plt.subplots_adjust(hspace=.5)
+    n_params = len(grouped.groupby(level=('params',)).groups.keys())
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
-        ax = fig.add_subplot(3, 1, i+1)
+        import pdb; pdb.set_trace()
+
+        ax = fig.add_subplot(n_params, 1, i+1)
         ax.set_title(param_name)
         ax.set_xlim(2, 30)
         for est_name, est_data in param_data.groupby(level=['estimation']):
@@ -163,9 +167,9 @@ def concat_dicts(d, names=()):
         return pd.concat(sublevel_d, names=[name])
 
 
-def merge_and_extract(data):
+def merge_and_extract(data, include=('v', 'a', 't')):
     results = concat_dicts(data, names=['n_subjs', 'n_trials', 'estimation', 'name_seed', 'param_seed'])
-    results = est.select_param(results, ['v', 'a', 't'])
+    results = est.select_param(results, include)
 
     return results
 
@@ -194,19 +198,22 @@ if __name__ == "__main__":
     parser.add_argument('-sv', action='store_true', dest='sv', default=False)
     parser.add_argument('-sz', action='store_true', dest='sz', default=False)
     parser.add_argument('-z', action='store_true', dest='z', default=False)
+    parser.add_argument('--full', action='store_true', dest='full', default=False)
 
     include=['v','t','a']
 
     result = parser.parse_args()
 
-    if result.st:
+    if result.st or result.full:
         include.append('st')
-    if result.sv:
+    if result.sv or result.full:
         include.append('sv')
-    if result.sz:
+    if result.sz or result.full:
         include.append('sz')
-    if result.z:
+    if result.z or result.full:
         include.append('z')
+
+
 
     run_trials, run_subjs, run_recovery = result.trials, result.subjs, result.recovery
     if result.all:
@@ -227,13 +234,13 @@ if __name__ == "__main__":
             recovery_exp = run_experiments(n_subjs=12, n_trials=30, include=include, view=view)
 
         if run_trials:
-            trial_data = merge_and_extract(trial_exp)
+            trial_data = merge_and_extract(trial_exp, include=include)
             trial_data.save('trial'+str(include)+'.dat')
         if run_subjs:
-            subj_data = merge_and_extract(subj_exp)
+            subj_data = merge_and_extract(subj_exp, include=include)
             subj_data.save('subj'+str(include)+'.dat')
         if run_recovery:
-            recovery_data = merge_and_extract(recovery_exp)
+            recovery_data = merge_and_extract(recovery_exp, include=include)
             recovery_data.save('recovery'+str(include)+'.dat')
 
     if result.load:

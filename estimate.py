@@ -27,6 +27,8 @@ class EstimationHDDM(Estimation):
 
     def __init__(self, data, **kwargs):
         super(EstimationHDDM, self).__init__(data, **kwargs)
+        import pdb; pdb.set_trace()
+
         self.model = hddm.HDDM(data, **kwargs)
 
     def estimate(self, **kwargs):
@@ -80,7 +82,7 @@ class EstimationSingleMLE(Estimation):
 class EstimationSingleMAP(Estimation):
 
     def __init__(self, data, **kwargs):
-        super(self.__class__, self).__init__(data, **kwargs)
+        super(EstimationSingleMAP, self).__init__(data, **kwargs)
 
         #create an HDDM model for each subject
         grouped_data = data.groupby('subj_idx')
@@ -318,7 +320,7 @@ def example_GroupOptimization():
     kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
     #run analysis
-    results = multi_recovery_fixed_n_trials(EstimationGroupOptimization, seed_data=1, seed_params=1, n_params=2, 
+    results = multi_recovery_fixed_n_trials(EstimationGroupOptimization, seed_data=1, seed_params=1, n_params=2,
                                             n_datasets=1, kw_dict=kw_dict, path='delete_me')
 
     return results
