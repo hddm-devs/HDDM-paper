@@ -1,7 +1,8 @@
 import hddm
 import numpy as np
 import pandas as pd
-import cPickle
+import copy
+import os.path
 
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
@@ -27,13 +28,18 @@ class EstimationHDDM(Estimation):
 
     def __init__(self, data, **kwargs):
         super(EstimationHDDM, self).__init__(data, **kwargs)
-        import pdb; pdb.set_trace()
 
         self.model = hddm.HDDM(data, **kwargs)
 
     def estimate(self, **kwargs):
         samples = kwargs.pop('samples', 10000)
-        self.model.approximate_map()
+
+        if kwargs.pop('map', False):
+            try:
+                self.model.approximate_map()
+            except:
+                pass
+
         self.model.sample(samples, **kwargs)
 
     def get_stats(self):
@@ -120,7 +126,6 @@ class EstimationSingleOptimization(Estimation):
         for subj_idx, subj_data in grouped_data:
             model = hddm.HDDMTruncated(subj_data.to_records(), is_group_model=False, **kwargs)
             self.models.append(model)
-#        kabuki.debug_here()
 
     def estimate(self, **quantiles_kwargs):
         self.results = [model.optimize(**quantiles_kwargs) for model in self.models]
@@ -138,7 +143,7 @@ class EstimationGroupOptimization(Estimation):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
-        self.model = hddm.HDDM(data, **kwargs)
+        self.model = hddm.HDDMTruncated(data, **kwargs)
 
     def estimate(self, **kwargs):
         self.results = self.model.optimize(**kwargs)
@@ -165,7 +170,26 @@ def put_all_params_in_a_single_dict(params, group_params, subj_noise):
 
     return p_dict
 
-def single_recovery_fixed_n_trials(seed_params, seed_data, estimation, kw_dict):
+def make_hash(o):
+    """
+    Makes a hash from a dictionary, list, tuple or set to any level, that contains
+    only other hashable types (including any lists, tuples, sets, and
+    dictionaries).
+    """
+
+    if isinstance(o, set) or isinstance(o, tuple) or isinstance(o, list):
+        return tuple([make_hash(e) for e in o])
+
+    elif not isinstance(o, dict):
+        return hash(o)
+
+    new_o = copy.deepcopy(o)
+    for k, v in new_o.items():
+        new_o[k] = make_hash(v)
+
+    return hash(tuple(frozenset(new_o.items())))
+
+def single_recovery_fixed_n_trials(estimation, kw_dict):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -179,17 +203,29 @@ def single_recovery_fixed_n_trials(seed_params, seed_data, estimation, kw_dict):
     """
 
     #generate params and data
-    np.random.seed(seed_params)
+    np.random.seed(kw_dict['seed_params'])
     params = hddm.generate.gen_rand_params(**kw_dict['params'])
-    np.random.seed(seed_data)
+    np.random.seed(kw_dict['seed_data'])
     data, group_params = hddm.generate.gen_rand_data(params, **kw_dict['data'])
     group_params = put_all_params_in_a_single_dict(params, group_params, kw_dict['data']['subj_noise'])
     data = DataFrame(data)
 
-    #estimate
-    est = estimation(data, **kw_dict['init'])
-    est.estimate(**kw_dict['estimate'])
-    return combine_params_and_stats(pd.Series(group_params), est.get_stats())
+    kw_dict['estimator_class'] = estimation.__name__
+    h = make_hash(kw_dict)
+
+    # check if job was already run, if so, load it!
+    fname = os.path.join('temp', '%s.dat' % str(h))
+    if os.path.isfile(fname):
+        stats = pd.load(fname)
+        print "Loading job %s" % h
+    else:
+        #estimate
+        est = estimation(data, **kw_dict['init'])
+        est.estimate(**kw_dict['estimate'])
+        stats = est.get_stats()
+        stats.save(fname)
+
+    return combine_params_and_stats(pd.Series(group_params), stats)
 
 def combine_params_and_stats(params, stats):
     comb = pd.concat([params, stats], axis=1, keys=['truth', 'estimate'])
@@ -201,7 +237,7 @@ def multi_recovery_fixed_n_trials(estimation, seed_params,
                                   seed_data, n_params, n_datasets, kw_dict, path=None, view=None):
 
     single = single_recovery_fixed_n_trials
-    analysis_func = lambda seeds: single(seeds[0], seeds[1], estimation, kw_dict)
+    analysis_func = lambda kw_seed: single(estimation, kw_seed)
 
     #create seeds for params and data
     p_seeds = seed_params + np.arange(n_params)
@@ -211,17 +247,16 @@ def multi_recovery_fixed_n_trials(estimation, seed_params,
     for p_seed in p_seeds:
         d_results = {}
         for d_seed in d_seeds:
+            kw_seed = copy.deepcopy(kw_dict)
+            kw_seed['seed_params'] = p_seed
+            kw_seed['seed_data'] = d_seed
             if view is None:
-                d_results[d_seed] = analysis_func((p_seed, d_seed))
+                d_results[d_seed] = analysis_func(kw_seed)
             else:
                 # append to job queue
-                d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, p_seed, d_seed, estimation, kw_dict)
+                d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, estimation, kw_seed)
 
         p_results[p_seed] = d_results
-
-    # if path is not None:
-    #     with open(path,'w') as file:
-    #         cPickle.dump([all_params, all_stats], file, cPickle.HIGHEST_PROTOCOL)
 
     return p_results
 
@@ -324,18 +359,5 @@ def example_GroupOptimization():
                                             n_datasets=1, kw_dict=kw_dict, path='delete_me')
 
     return results
-
-
-def select_param(stats, param_names, also_contains='subj'):
-    if isinstance(param_names, str):
-        param_names = [param_names]
-
-    extracted = {}
-    index = stats.index
-    for name in param_names:
-        select = [ix for ix in index if ix[-1].startswith(name) and also_contains in ix[-1]]
-        extracted[name] = stats.ix[select]
-
-    return pd.concat(extracted, names=['params'])
 
 
