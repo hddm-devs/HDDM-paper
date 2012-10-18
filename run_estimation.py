@@ -5,6 +5,8 @@ import argparse
 import sys
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import Grid
+
 import numpy as np
 import pandas as pd
 
@@ -12,6 +14,13 @@ from IPython import parallel
 from IPython.parallel.client.asyncresult import AsyncResult
 import estimate as est
 
+PARAM_NAMES = {'a': 'threshold',
+               'v': 'drift-rate',
+               't': 'non-decision time',
+               'z': 'bias',
+               'st': 'non-decision time var.',
+               'sz': 'bias var.'
+}
 
 def singleMAP_fixed_n_samples(n_subjs=8, n_samples=200):
 
@@ -58,6 +67,15 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         for cur_trials in n_trials:
             #kwards for gen_rand_data
             subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
+            if 'z' in include:
+                subj_noise['z'] = .1
+            if 'sz' in include:
+                subj_noise['sz'] = .05
+            if 'st' in include:
+                subj_noise['st'] = .05
+            if 'sv' in include:
+                subj_noise['sv'] = .05
+
             data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials}
 
             #kwargs for initialize estimation
@@ -71,8 +89,9 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
             models_params = OrderedDict()
             models_params['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
-            models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000}}
-            models_params['Quantiles'] = {'estimator': est.EstimationSingleOptimization, 'params': {'method': 'gsquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+            models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+            models_params['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization, 'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+            models_params['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization, 'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
 
             models_results = {}
             for model_name, descr in models_params.iteritems():
@@ -91,65 +110,83 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
 def plot_trial_exp(data):
     grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'params')).agg((np.mean, np.std))
+    n_params = len(grouped.groupby(level=('params',)).groups.keys())
 
-    fig = plt.figure()
-    plt.subplots_adjust(hspace=.5)
+    fig = plt.figure(figsize=(8, n_params*3))
+    grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False, label_mode='L', share_x=True, share_y=False, axes_pad=.25)
+
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
-        ax = fig.add_subplot(3, 1, i+1)
-        ax.set_title(param_name)
+        ax = grid[i]
+        ax.set_ylabel(PARAM_NAMES[param_name])
         ax.set_xlim(5, 95)
+        ax.set_yscale('log')
         for est_name, est_data in param_data.groupby(level=['estimation']):
             ax.errorbar(est_data.index.get_level_values('n_trials'),
                         est_data['mean'], label=est_name, lw=2.,
                         marker='o')
+            #ax.yaxis.set_major_locator(MaxNLocator(20))
 
-        ax.set_ylabel('MSE')
+
+        #ax.set_ylabel('MSE')
 
     ax.set_xlabel('trials')
     plt.legend(loc=0)
 
 def plot_subj_exp(data):
     grouped = data.MSE.dropna().groupby(level=('n_subjs', 'estimation', 'params')).agg((np.mean, np.std))
-
-    fig = plt.figure()
-    plt.subplots_adjust(hspace=.5)
     n_params = len(grouped.groupby(level=('params',)).groups.keys())
-    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
-        import pdb; pdb.set_trace()
 
-        ax = fig.add_subplot(n_params, 1, i+1)
-        ax.set_title(param_name)
+    fig = plt.figure(figsize=(8, n_params*3))
+    grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False, label_mode='L', share_x=True, share_y=False, axes_pad=.25)
+
+    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
+        ax = grid[i]
+        ax.set_ylabel(PARAM_NAMES[param_name])
         ax.set_xlim(2, 30)
+        ax.set_yscale('log')
         for est_name, est_data in param_data.groupby(level=['estimation']):
             ax.errorbar(est_data.index.get_level_values('n_subjs'),
                         est_data['mean'], label=est_name, lw=2.,
                         marker='o')
+            #ax.yaxis.set_major_locator(MaxNLocator(7))
 
-        ax.set_ylabel('MSE')
+        #ax.set_ylabel('MSE')
     ax.set_xlabel('subjs')
     plt.legend(loc=0)
 
-def plot_recovery_exp(data, tag=''):
-    for i, (est_name, est_data) in enumerate(data.dropna().groupby(level=['estimation'])):
-        for j, (param_name, param_data) in enumerate(est_data.groupby(level=('params',))):
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 1, 1)
-            ax.set_title(param_name)
-            #ax.plot(param_data.truth, param_data.estimate, 'x', label=est_name)
+def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100):
+    ni = len(data.dropna().groupby(level=['estimation']))
+    nj = len(data.dropna().groupby(level=('params',)))
 
-            mini = min(param_data.truth.min(), param_data.estimate.min())
-            maxi = max(param_data.truth.max(), param_data.estimate.max())
-            ax.set_xlim((mini, maxi))
-            ax.set_ylim((mini, maxi))
-            ax.set_xlabel('truth')
-            ax.set_ylabel('estimated')
-            kwargs = {'gridsize': 100, 'bins': 'log', 'extent': (mini, maxi, mini, maxi)}
+    data = data.dropna()
+    data = data[(data['estimate'] > abs_min) & (data['estimate'] < abs_max)]
+    data_params = data.groupby(level=('params',))[['truth', 'estimate']]
+    mini = data_params.min().min(axis=1)
+    maxi = data_params.max().max(axis=1)
+    print mini
+    print maxi
+
+    fig = plt.figure(figsize=(9, 3*nj))
+    grid = Grid(fig, 111, nrows_ncols=(nj, ni), add_all=True, share_all=False, label_mode='L', share_x=False, share_y=False)
+    for i, (est_name, est_data) in enumerate(data.dropna().groupby(level=['estimation'])):
+        nj = len(est_data.groupby(level=('params',)))
+        for j, (param_name, param_data) in enumerate(est_data.groupby(level=('params',))):
+            ax = grid.axes_column[i][j] #plt.subplot2grid((nj, ni), (j, i))
+            # if i == 0:
+            #     ax.set_title(est_name)
+            #ax.plot(param_data.truth, param_data.estimate, 'x', label=est_name)
+            minimaxi = (mini[param_name], maxi[param_name])
+            ax.set_xlim(minimaxi)
+            ax.set_ylim(minimaxi)
+            ax.set_xlabel(est_name)
+            ax.set_ylabel(PARAM_NAMES[param_name])
+            kwargs = {'gridsize': gridsize, 'bins': 'log', 'extent': (mini[param_name], maxi[param_name], mini[param_name], maxi[param_name])}
             ax.hexbin(param_data.truth, param_data.estimate, label='post pred lb', **kwargs)
 
             plt.legend()
 
-            plt.savefig('recovery_exp_%s_%s_%s.png'%(est_name, param_name, tag))
-            plt.savefig('recovery_exp_%s_%s_%s.svg'%(est_name, param_name, tag))
+    plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
+    plt.savefig('recovery_exp_%s.svg'%(tag))
 
 
 def concat_dicts(d, names=()):
@@ -158,7 +195,9 @@ def concat_dicts(d, names=()):
     if isinstance(d.values()[0], pd.DataFrame):
         return pd.concat(d, names=[name])
     elif isinstance(d.values()[0], AsyncResult):
-        d_get = {k: v.get() for k, v in d.iteritems()}
+        d_get = {}
+        for k, v in d.iteritems():
+            d_get[k] = v.get()
         return pd.concat(d_get, names=[name])
     else:
         sublevel_d = {}
@@ -167,11 +206,35 @@ def concat_dicts(d, names=()):
         return pd.concat(sublevel_d, names=[name])
 
 
-def merge_and_extract(data, include=('v', 'a', 't')):
+def merge(data):
     results = concat_dicts(data, names=['n_subjs', 'n_trials', 'estimation', 'name_seed', 'param_seed'])
-    results = est.select_param(results, include)
-
     return results
+
+def select(stats, param_names, subj=True):
+    if isinstance(param_names, str):
+        param_names = [param_names]
+
+    if subj:
+        estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj']
+    else:
+        estimators = ['HDDM', 'Quantiles_group']
+
+    extracted = {}
+    index = stats.index
+    for name in param_names:
+        select = []
+        for ix in index:
+            if subj:
+                if ix[-4] in estimators and ix[-1].startswith(name) and 'subj' in ix[-1]:
+                    select.append(ix)
+            else:
+                if ix[-4] in estimators and ix[-1] == name:
+                    select.append(ix)
+
+        extracted[name] = stats.ix[select]
+
+    return pd.concat(extracted, names=['params'])
+
 
 
 if __name__ == "__main__":
@@ -194,11 +257,14 @@ if __name__ == "__main__":
                         help='Run recovery experiment.')
     parser.add_argument('--all', action='store_true', dest='all', default=False,
                         help='Run all of the above experiments.')
+    parser.add_argument('--group', action='store_true', dest='group', default=False,
+                        help='Run only group estimations.')
     parser.add_argument('-st', action='store_true', dest='st', default=False)
     parser.add_argument('-sv', action='store_true', dest='sv', default=False)
     parser.add_argument('-sz', action='store_true', dest='sz', default=False)
     parser.add_argument('-z', action='store_true', dest='z', default=False)
     parser.add_argument('--full', action='store_true', dest='full', default=False)
+    parser.add_argument('--debug', action='store_true', dest='debug', default=False)
 
     include=['v','t','a']
 
@@ -206,13 +272,12 @@ if __name__ == "__main__":
 
     if result.st or result.full:
         include.append('st')
-    if result.sv or result.full:
-        include.append('sv')
+    #if result.sv or result.full:
+    #    include.append('sv')
     if result.sz or result.full:
         include.append('sz')
     if result.z or result.full:
         include.append('z')
-
 
 
     run_trials, run_subjs, run_recovery = result.trials, result.subjs, result.recovery
@@ -226,45 +291,63 @@ if __name__ == "__main__":
         view = None
 
     if result.run:
-        if run_trials:
-            trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), include=include, view=view)
-        if run_subjs:
-            subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, include=include, view=view)
-        if run_recovery:
-            recovery_exp = run_experiments(n_subjs=12, n_trials=30, include=include, view=view)
+        if result.debug:
+            if run_trials:
+                trial_exp = run_experiments(n_subjs=12, n_trials=10, n_params=1, n_datasets=1, include=include, view=view)
+            if run_subjs:
+                subj_exp = run_experiments(n_subjs=2, n_trials=20, n_params=1, n_datasets=1, include=include, view=view)
+            if run_recovery:
+                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=2, n_datasets=1, include=include, view=view)
+        else:
+            if run_trials:
+                trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5, include=include, view=view)
+            if run_subjs:
+                subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, n_params=5, n_datasets=5, include=include, view=view)
+            if run_recovery:
+                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, view=view)
 
         if run_trials:
-            trial_data = merge_and_extract(trial_exp, include=include)
+            trial_data = merge(trial_exp)
             trial_data.save('trial'+str(include)+'.dat')
         if run_subjs:
-            subj_data = merge_and_extract(subj_exp, include=include)
+            subj_data = merge(subj_exp)
             subj_data.save('subj'+str(include)+'.dat')
         if run_recovery:
-            recovery_data = merge_and_extract(recovery_exp, include=include)
+            recovery_data = merge(recovery_exp)
             recovery_data.save('recovery'+str(include)+'.dat')
 
     if result.load:
         if run_trials:
             trial_data = pd.load('trial'+str(include)+'.dat')
+            trial_data['estimate'] = np.float64(trial_data['estimate'])
         if run_subjs:
             subj_data = pd.load('subj'+str(include)+'.dat')
+            subj_data['estimate'] = np.float64(subj_data['estimate'])
         if run_recovery:
             recovery_data = pd.load('recovery'+str(include)+'.dat')
+            recovery_data['estimate'] = np.float64(recovery_data['estimate'])
 
     if result.analyze:
         if run_trials:
-            plot_trial_exp(trial_data)
-            plt.savefig('trial_exp'+str(include)+'.png')
-            plt.savefig('trial_exp'+str(include)+'.svg')
+            plot_trial_exp(select(trial_data, include, subj=True))
+            plt.savefig('trial_exp_subj'+str(include)+'.png')
+            plt.savefig('trial_exp_subj'+str(include)+'.svg')
+
+            plot_trial_exp(select(trial_data, include, subj=False))
+            plt.savefig('trial_exp_group'+str(include)+'.png')
+            plt.savefig('trial_exp_group'+str(include)+'.svg')
 
         if run_subjs:
-            plot_subj_exp(subj_data)
-            plt.savefig('subj_exp'+str(include)+'.png')
-            plt.savefig('subj_exp'+str(include)+'.svg')
+            plot_subj_exp(select(subj_data, include, subj=True))
+            plt.savefig('subj_exp_subj'+str(include)+'.png')
+            plt.savefig('subj_exp_subj'+str(include)+'.svg')
+
+            plot_subj_exp(select(subj_data, include, subj=False))
+            plt.savefig('subj_exp_group'+str(include)+'.png')
+            plt.savefig('subj_exp_group'+str(include)+'.svg')
 
         if run_recovery:
-            plot_recovery_exp(recovery_data, tag=str(include))
+            plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
+            plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
 
     sys.exit(0)
-    #a = view.apply_async(lambda x: x**2, 3)
-    #print a.get()
