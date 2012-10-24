@@ -51,7 +51,8 @@ def singleMAP_fixed_n_samples(n_subjs=8, n_samples=200):
 
     return results
 
-def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'), view=None):
+def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
+                    estimators = None, view=None):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
@@ -87,11 +88,18 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
             #creat kw_dict
             kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
+            if estimators is None:
+                estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj', 'Quantiles_group']
             models_params = OrderedDict()
-            models_params['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
-            models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
-            models_params['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization, 'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
-            models_params['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization, 'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+
+            if 'SingleMAP' in estimators:
+                models_params['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
+            if 'HDDM' in estimators:
+                models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+            if 'Quantiles_subj' in estimators:
+                models_params['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization, 'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+            if 'Quantiles_group' in estimators:
+                models_params['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization, 'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
 
             models_results = {}
             for model_name, descr in models_params.iteritems():
@@ -154,7 +162,7 @@ def plot_subj_exp(data):
     ax.set_xlabel('subjs')
     plt.legend(loc=0)
 
-def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100):
+def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=True):
     ni = len(data.dropna().groupby(level=['estimation']))
     nj = len(data.dropna().groupby(level=('params',)))
 
@@ -185,8 +193,9 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100):
 
             plt.legend()
 
-    plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
-    plt.savefig('recovery_exp_%s.svg'%(tag))
+    if save:
+        plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
+        plt.savefig('recovery_exp_%s.svg'%(tag))
 
 
 def concat_dicts(d, names=()):
@@ -255,6 +264,8 @@ if __name__ == "__main__":
                         help='Run subject experiment.')
     parser.add_argument('--recovery', action='store_true', dest='recovery', default=False,
                         help='Run recovery experiment.')
+    parser.add_argument('--outliers', action='store_true', dest='outliers', default=False,
+                        help='Run outliers experiment')
     parser.add_argument('--all', action='store_true', dest='all', default=False,
                         help='Run all of the above experiments.')
     parser.add_argument('--group', action='store_true', dest='group', default=False,
@@ -272,15 +283,18 @@ if __name__ == "__main__":
 
     if result.st or result.full:
         include.append('st')
-    #if result.sv or result.full:
-    #    include.append('sv')
+    if result.sv or result.full:
+        include.append('sv')
     if result.sz or result.full:
         include.append('sz')
     if result.z or result.full:
         include.append('z')
+    if result.outliers:
+        include.append('p_outlier')
 
 
-    run_trials, run_subjs, run_recovery = result.trials, result.subjs, result.recovery
+    run_trials, run_subjs, run_recovery, run_outliers = result.trials, result.subjs, result.recovery, result.outliers
+
     if result.all:
         run_trials, run_subjs, run_recovery = True, True, True
 
@@ -298,6 +312,10 @@ if __name__ == "__main__":
                 subj_exp = run_experiments(n_subjs=2, n_trials=20, n_params=1, n_datasets=1, include=include, view=view)
             if run_recovery:
                 recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=2, n_datasets=1, include=include, view=view)
+            if run_outliers:
+                outliers_exp = run_experiments(n_subjs=12, n_trials=250, n_params=2, n_datasets=1, include=include,
+                                              estimators = ['SingleMAP', 'Quantiles_subj'], view=view)
+
         else:
             if run_trials:
                 trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5, include=include, view=view)
@@ -305,6 +323,8 @@ if __name__ == "__main__":
                 subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, n_params=5, n_datasets=5, include=include, view=view)
             if run_recovery:
                 recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, view=view)
+            if run_outliers:
+                outliers_exp = run_experiments(n_subjs=12, n_trials=250, n_params=2, n_datasets=1, include=include, view=view)
 
         if run_trials:
             trial_data = merge(trial_exp)
@@ -315,6 +335,9 @@ if __name__ == "__main__":
         if run_recovery:
             recovery_data = merge(recovery_exp)
             recovery_data.save('recovery'+str(include)+'.dat')
+        if run_outliers:
+            outliers_data = merge(outliers_exp)
+            outliers_data.save('outliers'+str(include)+'.dat')
 
     if result.load:
         if run_trials:
@@ -326,6 +349,10 @@ if __name__ == "__main__":
         if run_recovery:
             recovery_data = pd.load('recovery'+str(include)+'.dat')
             recovery_data['estimate'] = np.float64(recovery_data['estimate'])
+        if run_outliers:
+            outliers_data = pd.load('outliers'+str(include)+'.dat')
+            outliers_data['estimate'] = np.float64(outliers_data['estimate'])
+
 
     if result.analyze:
         if run_trials:
@@ -349,5 +376,8 @@ if __name__ == "__main__":
         if run_recovery:
             plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
             plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
+
+        if run_outliers:
+            plot_recovery_exp(select(outliers_data, include, subj=True), tag='subj'+str(include), save=False)
 
     sys.exit(0)
