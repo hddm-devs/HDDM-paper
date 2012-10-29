@@ -22,37 +22,8 @@ PARAM_NAMES = {'a': 'threshold',
                'sz': 'bias var.'
 }
 
-def singleMAP_fixed_n_samples(n_subjs=8, n_samples=200):
-
-    #include params
-    params = {'include': ('v','t','a')}
-
-    #kwards for gen_rand_data
-    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
-    data = {'subjs': n_subjs, 'subj_noise': subj_noise, 'size': n_samples}
-
-    #kwargs for initialize estimation
-    init = {}
-
-    #kwargs for estimation
-    estimate = {'runs': 3}
-
-    #creat kw_dict
-    kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
-
-    #create filename
-    now = time.strftime("%Y%m%dT%H%M%S", time.localtime())
-    filename = 'singleMAP.fixed_n_samples.simple.%d_subjs.%d_samples.%s.pickle' % (n_subjs, n_samples, now)
-
-    #run analysis
-    recover = est.multi_recovery_fixed_n_samples
-    results = recover(est.EstimationSingleMAP, seed_data=1, seed_params=1, n_runs=3, mpi=False,
-            kw_dict=kw_dict, path=filename)
-
-    return results
-
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
-                    estimators=None, view=None):
+                    estimators=None, n_outliers=(0,), view=None):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
@@ -62,10 +33,30 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     params = {'include': include}
     recover = est.multi_recovery_fixed_n_trials
 
+    #set estimator_dict
+    if estimators is None:
+        estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj', 'Quantiles_group']
+
+    estimator_dict = OrderedDict()
+    if 'SingleMAP' in estimators:
+        estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
+    if 'SingleMAPoutliers' in estimators:
+        estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 3}}
+    if 'HDDM' in estimators:
+        estimator_dict['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+    if 'Quantiles_subj' in estimators:
+        estimator_dict['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
+                                           'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+    if 'Quantiles_group' in estimators:
+        estimator_dict['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization,
+                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+
+
     n_subjs_results = {}
     for cur_subjs in n_subjs:
         n_trials_results = {}
         for cur_trials in n_trials:
+
             #kwards for gen_rand_data
             subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
             if 'z' in include:
@@ -77,44 +68,38 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
             if 'sv' in include:
                 subj_noise['sv'] = .05
 
-            data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials}
-
             #kwargs for initialize estimation
             init = {'include': include}
 
             #kwargs for estimation
             estimate = {'runs': 3}
 
-            #creat kw_dict
-            kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
+            n_outliers_results = {}
+            for cur_outliers in n_outliers:
 
-            if estimators is None:
-                estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj', 'Quantiles_group']
-            models_params = OrderedDict()
+                n_fast_outliers = cur_outliers // 2;
+                n_slow_outliers = cur_outliers- n_fast_outliers
+                data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials,
+                        'n_fast_outliers': n_fast_outliers, 'n_slow_outliers': n_slow_outliers}
+                #creat kw_dict
+                kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
-            if 'SingleMAP' in estimators:
-                models_params['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
-            if 'HDDM' in estimators:
-                models_params['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
-            if 'Quantiles_subj' in estimators:
-                models_params['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
-                                                   'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
-            if 'Quantiles_group' in estimators:
-                models_params['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization,
-                                                    'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+                models_results = {}
+                for model_name, descr in estimator_dict.iteritems():
+                    kw_dict_model = deepcopy(kw_dict)
+                    kw_dict_model['estimate'] = descr['params']
+                    #run analysis
+                    models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
+                                                         n_datasets=n_datasets, kw_dict=kw_dict_model, view=view)
 
-            models_results = {}
-            for model_name, descr in models_params.iteritems():
-                kw_dict_model = deepcopy(kw_dict)
-                kw_dict_model['estimate'] = descr['params']
-                #run analysis
-                models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
-                                                     n_datasets=n_datasets, kw_dict=kw_dict_model, view=view)
+                n_outliers_results[cur_outliers] = models_results
+            #end of (for cur_outliers in n_outliers)
 
-
-            n_trials_results[cur_trials] = models_results
+            n_trials_results[cur_trials] = n_outliers_results
+        #end of (for cur_trials in n_trials)
 
         n_subjs_results[cur_subjs] = n_trials_results
+    #end of (for cur_subjs in n_subjs)
 
     return n_subjs_results
 
@@ -218,7 +203,7 @@ def concat_dicts(d, names=()):
 
 
 def merge(data):
-    results = concat_dicts(data, names=['n_subjs', 'n_trials', 'estimation', 'name_seed', 'param_seed'])
+    results = concat_dicts(data, names=['n_subjs', 'n_trials', 'n_outliers', 'estimation', 'param_seed', 'data_seed'])
     return results
 
 def select(stats, param_names, subj=True):
@@ -226,7 +211,7 @@ def select(stats, param_names, subj=True):
         param_names = [param_names]
 
     if subj:
-        estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj']
+        estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj', 'SingleMAPoutliers']
     else:
         estimators = ['HDDM', 'Quantiles_group']
 
@@ -312,12 +297,9 @@ if __name__ == "__main__":
             if run_recovery:
                 recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=2, n_datasets=1, include=include, view=view)
             if run_outliers:
-                outliers_estimators = ['SingleMAP', 'Quantiles_subj']
-                outliers_includes = [include + ['p_outlier'], include]
-                outliers_exp = [None]*2
-                for i in range(len(outliers_exp)):
-                    outliers_exp[i] = run_experiments(n_subjs=2, n_trials=250, n_params=100, n_datasets=1, include=outliers_includes[i],
-                                              estimators = outliers_estimators[i], view=view)
+                outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj']
+                outliers_exp = run_experiments(n_subjs=2, n_trials=250, n_params=3, n_datasets=1, include=include,
+                                              estimators=outliers_estimators, view=view, n_outliers=[0,10,50])
 
         else:
             if run_trials:
@@ -339,7 +321,7 @@ if __name__ == "__main__":
             recovery_data = merge(recovery_exp)
             recovery_data.save('recovery'+str(include)+'.dat')
         if run_outliers:
-            outliers_data = pd.concat([merge(x) for x in outliers_exp], verify_integrity=True)
+            outliers_data = merge(outliers_exp)
             outliers_data.save('outliers'+str(include)+'.dat')
 
     if result.load:

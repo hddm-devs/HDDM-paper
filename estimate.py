@@ -114,6 +114,14 @@ class EstimationSingleMAP(Estimation):
             stats.update(dict(values_tuple))
         return pd.Series(stats)
 
+#Single MAP Estimate with p_outliers
+class EstimationSingleMAPoutliers(EstimationSingleMAP):
+
+    def __init__(self, data, **kwargs):
+        kwargs = copy.deepcopy(kwargs)
+        kwargs['include'] += ['p_outlier']
+        super(EstimationSingleMAPoutliers, self).__init__(data, **kwargs)
+
 #Single G^2 Estimation
 class EstimationSingleOptimization(Estimation):
 
