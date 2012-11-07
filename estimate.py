@@ -238,6 +238,8 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
 def combine_params_and_stats(params, stats):
     comb = pd.concat([params, stats], axis=1, keys=['truth', 'estimate'])
     comb['MSE'] = np.asarray((comb['truth'] - comb['estimate'])**2, dtype=np.float32)
+    comb['Err'] = np.abs(np.asarray((comb['truth'] - comb['estimate']), dtype=np.float32))
+    comb['relErr'] = np.asarray((comb['Err'] / comb['truth']), dtype=np.float32)
 
     return comb
 

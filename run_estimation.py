@@ -184,6 +184,47 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=Tr
         plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
         plt.savefig('recovery_exp_%s.svg'%(tag))
 
+def plot_outliers_exp(data, tag='', gridsize=100, save=True):
+
+    data = data.dropna()
+    data_params = data.groupby(level=('params',))[['truth', 'estimate']]
+    mini = data_params.min().min(axis=1)
+    maxi = data_params.max().max(axis=1)
+    print mini
+    print maxi
+
+    grouped_data = data.dropna().groupby(level=['estimation'])
+    MAPoutliers_data = grouped_data.get_group('SingleMAPoutliers')
+    ni = len(grouped_data) - 1
+    nj = len(data.groupby(level=('params',)))
+    fig = plt.figure()#figsize=(9, 3*nj))
+    grid = Grid(fig, 111, nrows_ncols=(nj, ni), add_all=True, share_all=False, label_mode='L', share_x=False, share_y=False)
+    for i, (est_name, est_data) in enumerate(grouped_data):
+        if est_name == 'SingleMAPoutliers':
+            continue
+        for j, (param_name, param_data) in enumerate(est_data.groupby(level=('params',))):
+            ax = grid.axes_column[i][j]
+            minimaxi = (mini[param_name], maxi[param_name])
+#            ax.set_xlim(minimaxi)
+#            ax.set_ylim(minimaxi)
+            ax.set_xlabel(est_name)
+            ax.set_ylabel(PARAM_NAMES[param_name])
+            kwargs = {'gridsize': gridsize, 'bins': 'log'}
+#                      'extent': (mini[param_name], maxi[param_name], mini[param_name], maxi[param_name])}
+#            ax.hexbin(np.abs(param_data.relErr), MAPoutliers_data.ix[param_name].relErr, **kwargs)
+            ax.scatter(np.abs(param_data.relErr), np.abs(MAPoutliers_data.ix[param_name].relErr))
+            lb = min(ax.get_xlim()[0], ax.get_ylim()[0])
+            ub = max(ax.get_xlim()[1], ax.get_ylim()[1])
+            ax.plot([lb, ub], [lb, ub])
+#            ax.axis('equal')
+            ax.plot()
+
+#            plt.legend()
+
+    if save:
+        plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
+        plt.savefig('recovery_exp_%s.svg'%(tag))
+
 
 def concat_dicts(d, names=()):
     name = names.pop(0) if len(names) != 0 else None
@@ -363,6 +404,6 @@ if __name__ == "__main__":
             plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
 
         if run_outliers:
-            plot_recovery_exp(select(outliers_data, include, subj=True), tag='subj'+str(include), save=False)
+            plot_outliers_exp(select(outliers_data, include, subj=True), tag='subj'+str(include), save=False)
 
     sys.exit(0)
