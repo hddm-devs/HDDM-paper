@@ -43,7 +43,7 @@ class EstimationHDDM(Estimation):
         self.model.sample(samples, **kwargs)
 
     def get_stats(self):
-        stats = self.model.print_stats()
+        stats = self.model.gen_stats()
 
         return np.float32(stats['mean'])
 
@@ -239,7 +239,7 @@ def combine_params_and_stats(params, stats):
     comb = pd.concat([params, stats], axis=1, keys=['truth', 'estimate'])
     comb['MSE'] = np.asarray((comb['truth'] - comb['estimate'])**2, dtype=np.float32)
     comb['Err'] = np.abs(np.asarray((comb['truth'] - comb['estimate']), dtype=np.float32))
-    comb['relErr'] = np.asarray((comb['Err'] / comb['truth']), dtype=np.float32)
+    comb['relErr'] = np.abs(np.asarray((comb['Err'] / comb['truth']), dtype=np.float32))
 
     return comb
 

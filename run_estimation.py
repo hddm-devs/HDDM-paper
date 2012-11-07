@@ -330,9 +330,14 @@ if __name__ == "__main__":
         view = None
 
     if result.run:
+        if result.group:
+            estimators = ['HDDM','Quantiles_group']
+        else:
+            estimators = None
+
         if result.debug:
             if run_trials:
-                trial_exp = run_experiments(n_subjs=12, n_trials=10, n_params=1, n_datasets=1, include=include, view=view)
+                trial_exp = run_experiments(n_subjs=12, n_trials=100, estimators=estimators, n_params=3, n_datasets=1, include=include, view=view)
             if run_subjs:
                 subj_exp = run_experiments(n_subjs=2, n_trials=20, n_params=1, n_datasets=1, include=include, view=view)
             if run_recovery:
