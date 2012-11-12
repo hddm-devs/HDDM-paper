@@ -47,6 +47,34 @@ class EstimationHDDM(Estimation):
 
         return np.float32(stats['mean'])
 
+#HDDM Estimation
+class EstimationHDDMsharedVar(Estimation):
+
+    def __init__(self, data, **kwargs):
+        super(EstimationHDDMsharedVar, self).__init__(data, **kwargs)
+        self.init_kwargs = kwargs.copy()
+        self.init_model(data)
+
+    def init_model(self, data):
+            self.model = hddm.HDDMTruncated(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
+
+    def estimate(self, **kwargs):
+        samples = kwargs.pop('samples', 10000)
+
+        if kwargs.pop('map', False):
+            try:
+                self.model.approximate_map()
+            except FloatingPointError: #in case of error we if to reinit the model
+                self.init_model(self.model.data)
+
+        self.model.sample(samples, **kwargs)
+
+    def get_stats(self):
+        stats = self.model.gen_stats()
+
+        return np.float32(stats['mean'])
+
+
 
 #Single MLE Estimation
 class EstimationSingleMLE(Estimation):

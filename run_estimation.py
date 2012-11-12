@@ -14,13 +14,20 @@ from IPython import parallel
 from IPython.parallel.client.asyncresult import AsyncResult
 import estimate as est
 
-PARAM_NAMES = {'a': 'threshold',
-               'v': 'drift-rate',
-               't': 'non-decision time',
-               'z': 'bias',
-               'st': 'non-decision time var.',
-               'sz': 'bias var.'
-}
+#PARAM_NAMES = {'a': 'threshold',
+#               'v': 'drift-rate',
+#               't': 'non-decision time',
+#               'z': 'bias',
+#               'st': 'non-decision time var.',
+#               'sz': 'bias var.'}
+
+PARAM_NAMES = {'a': 'a',
+               'v': 'v',
+               't': 't',
+               'z': 'z',
+               'st': 'st',
+               'sz': 'sz',
+               'sv': 'sv'}
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
                     estimators=None, n_outliers=(0,), view=None):
@@ -42,6 +49,8 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
     if 'SingleMAPoutliers' in estimators:
         estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 3}}
+    if 'HDDMsharedVar' in estimators:
+        estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
     if 'HDDM' in estimators:
         estimator_dict['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
     if 'Quantiles_subj' in estimators:
@@ -184,7 +193,7 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=Tr
         plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
         plt.savefig('recovery_exp_%s.svg'%(tag))
 
-def plot_outliers_exp(data, tag='', gridsize=100, save=True):
+def one_vs_others(data, main_estimator, tag='', gridsize=100, save=True):
 
     data = data.dropna()
     data_params = data.groupby(level=('params',))[['truth', 'estimate']]
@@ -193,17 +202,18 @@ def plot_outliers_exp(data, tag='', gridsize=100, save=True):
     print mini
     print maxi
 
-    grouped_data = data.dropna().groupby(level=['estimation'])
-    MAPoutliers_data = grouped_data.get_group('SingleMAPoutliers')
+    grouped_data = data.groupby(level=['estimation'])
+    main_data = grouped_data.get_group(main_estimator)
     ni = len(grouped_data) - 1
     nj = len(data.groupby(level=('params',)))
     fig = plt.figure()#figsize=(9, 3*nj))
-    grid = Grid(fig, 111, nrows_ncols=(nj, ni), add_all=True, share_all=False, label_mode='L', share_x=False, share_y=False)
-    for i, (est_name, est_data) in enumerate(grouped_data):
-        if est_name == 'SingleMAPoutliers':
-            continue
-        for j, (param_name, param_data) in enumerate(est_data.groupby(level=('params',))):
-            ax = grid.axes_column[i][j]
+    counter = 0
+    for j, (param_name, param_data) in enumerate(data.groupby(level=('params',))):
+        for i, (est_name, est_data) in enumerate(param_data.groupby(level=('estimation',))):
+            if est_name == main_estimator:
+                continue
+            counter = counter + 1
+            ax = fig.add_subplot(nj, ni, counter)
             minimaxi = (mini[param_name], maxi[param_name])
 #            ax.set_xlim(minimaxi)
 #            ax.set_ylim(minimaxi)
@@ -211,15 +221,15 @@ def plot_outliers_exp(data, tag='', gridsize=100, save=True):
             ax.set_ylabel(PARAM_NAMES[param_name])
             kwargs = {'gridsize': gridsize, 'bins': 'log'}
 #                      'extent': (mini[param_name], maxi[param_name], mini[param_name], maxi[param_name])}
-#            ax.hexbin(np.abs(param_data.relErr), MAPoutliers_data.ix[param_name].relErr, **kwargs)
-            ax.scatter(np.abs(param_data.relErr), np.abs(MAPoutliers_data.ix[param_name].relErr))
+#            ax.hexbin(np.abs(est_data.relErr), main_data.ix[param_name].relErr, **kwargs)
+#            ax.scatter(np.abs(est_data.relErr), np.abs(main_data.ix[param_name].relErr))
+            ax.scatter(est_data.Err, main_data.ix[param_name].Err)
             lb = min(ax.get_xlim()[0], ax.get_ylim()[0])
             ub = max(ax.get_xlim()[1], ax.get_ylim()[1])
             ax.plot([lb, ub], [lb, ub])
 #            ax.axis('equal')
             ax.plot()
 
-#            plt.legend()
 
     if save:
         plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
@@ -254,7 +264,7 @@ def select(stats, param_names, subj=True):
     if subj:
         estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj', 'SingleMAPoutliers']
     else:
-        estimators = ['HDDM', 'Quantiles_group']
+        estimators = ['HDDM', 'Quantiles_group', 'HDDMsharedVar']
 
     extracted = {}
     index = stats.index
@@ -331,7 +341,7 @@ if __name__ == "__main__":
 
     if result.run:
         if result.group:
-            estimators = ['HDDM','Quantiles_group']
+            estimators = ['HDDM','Quantiles_group', 'HDDMsharedVar']
         else:
             estimators = None
 
@@ -341,7 +351,7 @@ if __name__ == "__main__":
             if run_subjs:
                 subj_exp = run_experiments(n_subjs=2, n_trials=20, n_params=1, n_datasets=1, include=include, view=view)
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=2, n_datasets=1, include=include, view=view)
+                recovery_exp = run_experiments(n_subjs=12, n_trials=30, estimators=estimators, n_params=3, n_datasets=1, include=include, view=view)
             if run_outliers:
                 outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj']
                 outliers_exp = run_experiments(n_subjs=2, n_trials=250, n_params=3, n_datasets=1, include=include,
@@ -405,10 +415,11 @@ if __name__ == "__main__":
             plt.savefig('subj_exp_group'+str(include)+'.svg')
 
         if run_recovery:
-            plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
-            plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
+            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDM', tag='group'+str(include), save=False)
+#            plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
+#            plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
 
         if run_outliers:
-            plot_outliers_exp(select(outliers_data, include, subj=True), tag='subj'+str(include), save=False)
+            one_vs_others(select(outliers_data, include, subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=False)
 
     sys.exit(0)
