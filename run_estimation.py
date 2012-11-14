@@ -42,7 +42,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
     #set estimator_dict
     if estimators is None:
-        estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj', 'Quantiles_group']
+        estimators = ['SingleMAP', 'HDDMTruncated', 'Quantiles_subj', 'Quantiles_group']
 
     estimator_dict = OrderedDict()
     if 'SingleMAP' in estimators:
@@ -51,8 +51,8 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 3}}
     if 'HDDMsharedVar' in estimators:
         estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
-    if 'HDDM' in estimators:
-        estimator_dict['HDDM'] = {'estimator': est.EstimationHDDM, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+    if 'HDDMTruncated' in estimators:
+        estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
     if 'Quantiles_subj' in estimators:
         estimator_dict['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
@@ -137,7 +137,7 @@ def plot_trial_exp(data):
     plt.legend(loc=0)
 
 def plot_subj_exp(data):
-    grouped = data.MSE.dropna().groupby(level=('n_subjs', 'estimation', 'params')).agg((np.mean, np.std))
+    grouped = data.Err.dropna().groupby(level=('n_subjs', 'estimation', 'params')).agg((np.mean, np.std))
     n_params = len(grouped.groupby(level=('params',)).groups.keys())
 
     fig = plt.figure(figsize=(8, n_params*3))
@@ -159,10 +159,11 @@ def plot_subj_exp(data):
     plt.legend(loc=0)
 
 def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=True):
+
+    data = data[['truth', 'estimate','Err']].dropna()
     ni = len(data.dropna().groupby(level=['estimation']))
     nj = len(data.dropna().groupby(level=('params',)))
 
-    data = data.dropna()
     data = data[(data['estimate'] > abs_min) & (data['estimate'] < abs_max)]
     data_params = data.groupby(level=('params',))[['truth', 'estimate']]
     mini = data_params.min().min(axis=1)
@@ -195,7 +196,7 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=Tr
 
 def one_vs_others(data, main_estimator, tag='', gridsize=100, save=True):
 
-    data = data.dropna()
+    data = data[['truth', 'estimate','Err']].dropna()
     data_params = data.groupby(level=('params',))[['truth', 'estimate']]
     mini = data_params.min().min(axis=1)
     maxi = data_params.max().max(axis=1)
@@ -262,9 +263,9 @@ def select(stats, param_names, subj=True):
         param_names = [param_names]
 
     if subj:
-        estimators = ['SingleMAP', 'HDDM', 'Quantiles_subj', 'SingleMAPoutliers']
+        estimators = ['SingleMAP', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers']
     else:
-        estimators = ['HDDM', 'Quantiles_group', 'HDDMsharedVar']
+        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar']
 
     extracted = {}
     index = stats.index
@@ -341,7 +342,7 @@ if __name__ == "__main__":
 
     if result.run:
         if result.group:
-            estimators = ['HDDM','Quantiles_group', 'HDDMsharedVar']
+            estimators = ['HDDMTruncated','Quantiles_group', 'HDDMsharedVar']
         else:
             estimators = None
 
@@ -351,7 +352,7 @@ if __name__ == "__main__":
             if run_subjs:
                 subj_exp = run_experiments(n_subjs=2, n_trials=20, n_params=1, n_datasets=1, include=include, view=view)
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=12, n_trials=30, estimators=estimators, n_params=3, n_datasets=1, include=include, view=view)
+                recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=3, n_datasets=1, include=include, view=view)
             if run_outliers:
                 outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj']
                 outliers_exp = run_experiments(n_subjs=2, n_trials=250, n_params=3, n_datasets=1, include=include,
@@ -415,7 +416,7 @@ if __name__ == "__main__":
             plt.savefig('subj_exp_group'+str(include)+'.svg')
 
         if run_recovery:
-            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDM', tag='group'+str(include), save=False)
+            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
 #            plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
 #            plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
 

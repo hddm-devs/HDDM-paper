@@ -24,12 +24,12 @@ class Estimation(object):
 
 
 #HDDM Estimation
-class EstimationHDDM(Estimation):
+class EstimationHDDMTrunacted(Estimation):
 
     def __init__(self, data, **kwargs):
         super(EstimationHDDM, self).__init__(data, **kwargs)
 
-        self.model = hddm.HDDM(data, **kwargs)
+        self.model = hddm.HDDMTrunctaed(data, **kwargs)
 
     def estimate(self, **kwargs):
         samples = kwargs.pop('samples', 10000)
@@ -45,7 +45,7 @@ class EstimationHDDM(Estimation):
     def get_stats(self):
         stats = self.model.gen_stats()
 
-        return np.float32(stats['mean'])
+        return stats
 
 #HDDM Estimation
 class EstimationHDDMsharedVar(Estimation):
@@ -72,7 +72,7 @@ class EstimationHDDMsharedVar(Estimation):
     def get_stats(self):
         stats = self.model.gen_stats()
 
-        return np.float32(stats['mean'])
+        return stats
 
 
 
@@ -264,7 +264,12 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
     return combine_params_and_stats(pd.Series(group_params), stats)
 
 def combine_params_and_stats(params, stats):
-    comb = pd.concat([params, stats], axis=1, keys=['truth', 'estimate'])
+    if isinstance(stats, pd.DataFrame):
+        params = pd.DataFrame(params, columns=['truth'])
+        stats = stats.rename(columns={'mean': 'estimate'})
+        comb = pd.concat([params, stats], axis=1)
+    else:
+        comb = pd.concat([params, stats], axis=1, keys=['truth', 'estimate'])
     comb['MSE'] = np.asarray((comb['truth'] - comb['estimate'])**2, dtype=np.float32)
     comb['Err'] = np.abs(np.asarray((comb['truth'] - comb['estimate']), dtype=np.float32))
     comb['relErr'] = np.abs(np.asarray((comb['Err'] / comb['truth']), dtype=np.float32))
