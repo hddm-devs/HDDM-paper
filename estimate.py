@@ -22,41 +22,16 @@ class Estimation(object):
         self.include = include
         self.stats = {}
 
-
 #HDDM Estimation
-class EstimationHDDMTrunacted(Estimation):
+class EstimationHDDMBase(Estimation):
 
     def __init__(self, data, **kwargs):
-        super(EstimationHDDM, self).__init__(data, **kwargs)
-
-        self.model = hddm.HDDMTrunctaed(data, **kwargs)
-
-    def estimate(self, **kwargs):
-        samples = kwargs.pop('samples', 10000)
-
-        if kwargs.pop('map', False):
-            try:
-                self.model.approximate_map()
-            except:
-                pass
-
-        self.model.sample(samples, **kwargs)
-
-    def get_stats(self):
-        stats = self.model.gen_stats()
-
-        return stats
-
-#HDDM Estimation
-class EstimationHDDMsharedVar(Estimation):
-
-    def __init__(self, data, **kwargs):
-        super(EstimationHDDMsharedVar, self).__init__(data, **kwargs)
+        super(EstimationHDDMBase, self).__init__(data, **kwargs)
         self.init_kwargs = kwargs.copy()
         self.init_model(data)
 
     def init_model(self, data):
-            self.model = hddm.HDDMTruncated(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
+            pass
 
     def estimate(self, **kwargs):
         samples = kwargs.pop('samples', 10000)
@@ -73,6 +48,27 @@ class EstimationHDDMsharedVar(Estimation):
         stats = self.model.gen_stats()
 
         return stats
+
+
+
+#HDDM Estimation
+class EstimationHDDMTruncated(EstimationHDDMBase):
+
+    def __init__(self, data, **kwargs):
+        super(EstimationHDDMTruncated, self).__init__(data, **kwargs)
+
+    def init_model(self, data):
+            self.model = hddm.HDDMTruncated(data, **self.init_kwargs)
+
+
+#HDDM Estimation
+class EstimationHDDMsharedVar(EstimationHDDMBase):
+
+    def __init__(self, data, **kwargs):
+        super(EstimationHDDMsharedVar, self).__init__(data, **kwargs)
+
+    def init_model(self, data):
+            self.model = hddm.HDDMTruncated(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
 
 
 
@@ -192,17 +188,21 @@ class EstimationGroupOptimization(Estimation):
 #
 #
 
-def put_all_params_in_a_single_dict(params, group_params, subj_noise):
-    p_dict = params.copy()
+def put_all_params_in_a_single_dict(joined_params, group_params, subj_noise, depends_on):
+    p_dict = joined_params.copy()
 
     #put subj params in p_dict
-    for idx, subj_dict in enumerate(group_params):
-        for (name, value) in subj_dict.iteritems():
-            p_dict['%s_subj.%i'%(name, idx)] = value
+    for cond, cond_params in group_params.iteritems():
+        for idx, subj_dict in enumerate(cond_params):
+            for (name, value) in subj_dict.iteritems():
+                if name in depends_on:
+                    p_dict['%s_subj(%s).%i'%(name, cond, idx)] = value
+                else:
+                    p_dict['%s_subj.%i'%(name, idx)] = value
 
     #put group noise in the p_dict
     for (name, value) in subj_noise.iteritems():
-        p_dict[name + '_std'] = value
+        p_dict[name + '_var'] = value
 
     return p_dict
 
@@ -240,10 +240,12 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
 
     #generate params and data
     np.random.seed(kw_dict['seed_params'])
-    params = hddm.generate.gen_rand_params(**kw_dict['params'])
+    n_conds = kw_dict['params'].pop('n_conds', 4)
+    cond_v =  (np.random.rand()*0.4 + 0.1) * 2**np.arange(n_conds)
+    params, joined_params = hddm.generate.gen_rand_params(cond_dict={'v':cond_v}, **kw_dict['params'])
     np.random.seed(kw_dict['seed_data'])
     data, group_params = hddm.generate.gen_rand_data(params, **kw_dict['data'])
-    group_params = put_all_params_in_a_single_dict(params, group_params, kw_dict['data']['subj_noise'])
+    group_params = put_all_params_in_a_single_dict(joined_params, group_params, kw_dict['data']['subj_noise'], kw_dict['init']['depends_on'])
     data = DataFrame(data)
 
     kw_dict['estimator_class'] = estimation.__name__

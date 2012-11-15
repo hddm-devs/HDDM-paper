@@ -30,14 +30,31 @@ PARAM_NAMES = {'a': 'a',
                'sv': 'sv'}
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
-                    estimators=None, n_outliers=(0,), view=None):
+                    estimators=None, n_outliers=(0,), view=None, depends_on = None, n_conds=4):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
         n_trials = (n_trials,)
 
+    #kwards for gen_rand_data
+    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
+    if 'z' in include:
+        subj_noise['z'] = .1
+    if 'sz' in include:
+        subj_noise['sz'] = .05
+    if 'st' in include:
+        subj_noise['st'] = .05
+    if 'sv' in include:
+        subj_noise['sv'] = .05
+
+    #kwargs for initialize estimation
+    init = {'include': include, 'depends_on': depends_on}
+
+    #kwargs for estimation
+    estimate = {'runs': 3}
+
     #include params
-    params = {'include': include}
+    params = {'include': include, 'n_conds': n_conds}
     recover = est.multi_recovery_fixed_n_trials
 
     #set estimator_dict
@@ -51,8 +68,10 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 3}}
     if 'HDDMsharedVar' in estimators:
         estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+#        estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 150, 'burn': 0000, 'map': True}}
     if 'HDDMTruncated' in estimators:
         estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+#        estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 150, 'burn': 0000, 'map': True}}
     if 'Quantiles_subj' in estimators:
         estimator_dict['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
@@ -65,23 +84,6 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     for cur_subjs in n_subjs:
         n_trials_results = {}
         for cur_trials in n_trials:
-
-            #kwards for gen_rand_data
-            subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
-            if 'z' in include:
-                subj_noise['z'] = .1
-            if 'sz' in include:
-                subj_noise['sz'] = .05
-            if 'st' in include:
-                subj_noise['st'] = .05
-            if 'sv' in include:
-                subj_noise['sv'] = .05
-
-            #kwargs for initialize estimation
-            init = {'include': include}
-
-            #kwargs for estimation
-            estimate = {'runs': 3}
 
             n_outliers_results = {}
             for cur_outliers in n_outliers:
@@ -276,7 +278,7 @@ def select(stats, param_names, subj=True):
                 if ix[-4] in estimators and ix[-1].startswith(name) and 'subj' in ix[-1]:
                     select.append(ix)
             else:
-                if ix[-4] in estimators and ix[-1] == name:
+                if ix[-4] in estimators and ((ix[-1] == name) or (ix[-1].startswith(name + '('))):
                     select.append(ix)
 
         extracted[name] = stats.ix[select]
@@ -342,6 +344,7 @@ if __name__ == "__main__":
 
     if result.run:
         if result.group:
+#            estimators = ['HDDMTruncated','Quantiles_group', 'HDDMsharedVar']
             estimators = ['HDDMTruncated','Quantiles_group', 'HDDMsharedVar']
         else:
             estimators = None
@@ -352,7 +355,8 @@ if __name__ == "__main__":
             if run_subjs:
                 subj_exp = run_experiments(n_subjs=2, n_trials=20, n_params=1, n_datasets=1, include=include, view=view)
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=3, n_datasets=1, include=include, view=view)
+                recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1, 
+                                               include=include, view=view, depends_on = {'v':'condition'})
             if run_outliers:
                 outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj']
                 outliers_exp = run_experiments(n_subjs=2, n_trials=250, n_params=3, n_datasets=1, include=include,
@@ -360,11 +364,14 @@ if __name__ == "__main__":
 
         else:
             if run_trials:
-                trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5, include=include, view=view)
+                trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5, 
+                                            include=include, view=view, depends_on = {'v':'condition'})
             if run_subjs:
-                subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, n_params=5, n_datasets=5, include=include, view=view)
+                subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, n_params=5, n_datasets=5, 
+                                           include=include, view=view, depends_on = {'v':'condition'})
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, view=view)
+                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, 
+                                               view=view, depends_on = {'v':'condition'})
             if run_outliers:
                 outliers_exp = run_experiments(n_subjs=12, n_trials=250, n_params=2, n_datasets=1, include=include, view=view)
 
@@ -416,9 +423,9 @@ if __name__ == "__main__":
             plt.savefig('subj_exp_group'+str(include)+'.svg')
 
         if run_recovery:
-            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
-#            plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
-#            plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
+#            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
+            plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
+            plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
 
         if run_outliers:
             one_vs_others(select(outliers_data, include, subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=False)
