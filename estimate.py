@@ -244,10 +244,8 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
     cond_v =  (np.random.rand()*0.4 + 0.1) * 2**np.arange(n_conds)
     params, joined_params = hddm.generate.gen_rand_params(cond_dict={'v':cond_v}, **kw_dict['params'])
     np.random.seed(kw_dict['seed_data'])
-    data, group_params = hddm.generate.gen_rand_data(params, **kw_dict['data'])
-    group_params = put_all_params_in_a_single_dict(joined_params, group_params, kw_dict['data']['subj_noise'], kw_dict['init']['depends_on'])
-    data = DataFrame(data)
 
+    #create a job hash
     kw_dict['estimator_class'] = estimation.__name__
     h = make_hash(kw_dict)
 
@@ -256,8 +254,17 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
     if os.path.isfile(fname):
         stats = pd.load(fname)
         print "Loading job %s" % h
+        generate_data=False
     else:
-        #estimate
+        generate_data=True
+
+    #generate params and data
+    data, group_params = hddm.generate.gen_rand_data(params, generate_data=generate_data, **kw_dict['data'])
+    group_params = put_all_params_in_a_single_dict(joined_params, group_params, kw_dict['data']['subj_noise'], kw_dict['init']['depends_on'])
+
+    #estimate
+    if generate_data:
+        data = DataFrame(data)
         est = estimation(data, **kw_dict['init'])
         est.estimate(**kw_dict['estimate'])
         stats = est.get_stats()
