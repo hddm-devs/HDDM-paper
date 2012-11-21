@@ -59,7 +59,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
     #set estimator_dict
     if estimators is None:
-        estimators = ['SingleMAP', 'HDDMTruncated', 'Quantiles_subj', 'Quantiles_group']
+        estimators = ['SingleMAP', 'HDDMTruncated', 'Quantiles_subj', 'Quantiles_group','HDDMsharedVar']
 
     estimator_dict = OrderedDict()
     if 'SingleMAP' in estimators:
