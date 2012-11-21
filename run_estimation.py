@@ -63,7 +63,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
     estimator_dict = OrderedDict()
     if 'SingleMAP' in estimators:
-        estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 3}}
+        estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 5}}
     if 'SingleMAPoutliers' in estimators:
         estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 3}}
     if 'HDDMsharedVar' in estimators:
@@ -74,10 +74,10 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 #        estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 150, 'burn': 0000, 'map': True}}
     if 'Quantiles_subj' in estimators:
         estimator_dict['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
-                                           'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+                                           'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 5}}
     if 'Quantiles_group' in estimators:
         estimator_dict['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization,
-                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9)}}
+                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 5}}
 
 
     n_subjs_results = {}
@@ -351,11 +351,11 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_trials:
-                trial_exp = run_experiments(n_subjs=12, n_trials=100, estimators=estimators, n_params=3, n_datasets=1, include=include, view=view)
+                trial_exp = run_experiments(n_subjs=6, n_trials=[50,100], estimators=estimators, n_params=2, n_datasets=1, include=include, view=view)
             if run_subjs:
-                subj_exp = run_experiments(n_subjs=2, n_trials=20, n_params=1, n_datasets=1, include=include, view=view)
+                subj_exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include, view=view)
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1, 
+                recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1,
                                                include=include, view=view, depends_on = {'v':'condition'})
             if run_outliers:
                 outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj']
@@ -364,13 +364,13 @@ if __name__ == "__main__":
 
         else:
             if run_trials:
-                trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5, 
+                trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5,
                                             include=include, view=view, depends_on = {'v':'condition'})
             if run_subjs:
-                subj_exp = run_experiments(n_subjs=list(np.arange(2, 30, 2)), n_trials=20, n_params=5, n_datasets=5, 
+                subj_exp = run_experiments(n_subjs=list(np.arange(4, 30, 2)), n_trials=20, n_params=5, n_datasets=5,
                                            include=include, view=view, depends_on = {'v':'condition'})
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, 
+                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include,
                                                view=view, depends_on = {'v':'condition'})
             if run_outliers:
                 outliers_exp = run_experiments(n_subjs=12, n_trials=250, n_params=2, n_datasets=1, include=include, view=view)
