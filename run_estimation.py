@@ -351,9 +351,11 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_trials:
-                trial_exp = run_experiments(n_subjs=6, n_trials=[50,100], estimators=estimators, n_params=2, n_datasets=1, include=include, view=view)
+                trial_exp = run_experiments(n_subjs=6, n_trials=[50,100], estimators=estimators, n_params=2, n_datasets=1,
+                                            include=include, view=view)
             if run_subjs:
-                subj_exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include, view=view)
+                subj_exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
+                                           view=view, estimators=estimators)
             if run_recovery:
                 recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1,
                                                include=include, view=view, depends_on = {'v':'condition'})
@@ -365,15 +367,16 @@ if __name__ == "__main__":
         else:
             if run_trials:
                 trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5,
-                                            include=include, view=view, depends_on = {'v':'condition'})
+                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
                 subj_exp = run_experiments(n_subjs=list(np.arange(4, 30, 2)), n_trials=20, n_params=5, n_datasets=5,
-                                           include=include, view=view, depends_on = {'v':'condition'})
+                                           include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_recovery:
                 recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include,
-                                               view=view, depends_on = {'v':'condition'})
+                                               view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_outliers:
-                outliers_exp = run_experiments(n_subjs=12, n_trials=250, n_params=2, n_datasets=1, include=include, view=view)
+                outliers_exp = run_experiments(n_subjs=12, n_trials=250, n_params=2, n_datasets=1, include=include, view=view,
+                                               estimators=estimators)
 
         if run_trials:
             trial_data = merge(trial_exp)
