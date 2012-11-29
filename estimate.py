@@ -38,7 +38,7 @@ class EstimationHDDMBase(Estimation):
 
         if kwargs.pop('map', False):
             try:
-                self.model.approximate_map(fall_to_simplex=True)
+                self.model.approximate_map(fall_to_simplex=False)
             except FloatingPointError: #in case of error we have to reinit the model
                 self.init_model(self.model.data)
 
