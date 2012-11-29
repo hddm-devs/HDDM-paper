@@ -256,6 +256,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
         print "Loading job %s" % h
         generate_data=False
     else:
+        pd.DataFrame().save(fname)
         generate_data=True
 
     #generate params and data
