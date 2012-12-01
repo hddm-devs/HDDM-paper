@@ -255,6 +255,8 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
         stats = pd.load(fname)
         print "Loading job %s" % h
         generate_data=False
+        if len(stats) == 0:
+            return stats
     else:
         pd.DataFrame().save(fname)
         generate_data=True
