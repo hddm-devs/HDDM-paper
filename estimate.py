@@ -431,3 +431,30 @@ def example_GroupOptimization():
     return results
 
 
+
+def fix_wrong_subjects_name(data):
+    to_remove = []
+    for t_idx in data.index:
+        if t_idx[-1].startswith('v(c') and '_subj' in t_idx[-1]:
+            wrong_name = t_idx[-1]
+            cond = wrong_name[3]
+            subj_idx = wrong_name.split('.')[1]
+
+            #create the correct index
+            t_idx2 = list(t_idx)
+            t_idx2[-1] = 'v_subj(c%s).%s' % (cond, subj_idx)
+
+            estimate_value = data.get_value(t_idx, col='estimate')
+            data.set_value(tuple(t_idx2), col='estimate', value=estimate_value)
+            to_remove.append(t_idx)
+
+    #remove wrong indecies
+    data = data.drop(to_remove)
+
+    #get MSE, Err and stuff
+    data['MSE'] = np.asarray((data['truth'] - data['estimate'])**2, dtype=np.float32)
+    data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))
+    data['relErr'] = np.abs(np.asarray((data['Err'] / data['truth']), dtype=np.float32))
+
+    return data
+
