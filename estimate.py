@@ -132,9 +132,16 @@ class EstimationSingleMAP(Estimation):
 
     def get_stats(self):
         stats = {}
-        for idx, model in enumerate(self.models):
-            model.mcmc()
-            values_tuple = [(x.__name__ + '_subj.' + str(idx), float(x.value)) for x in model.mc.stochastics]
+        for subj_idx, model in enumerate(self.models):
+            values_tuple = [None] * len(model.get_stochastics())
+            for (i_value, (node_name, node_row)) in enumerate(model.iter_stochastics()):
+                if '(' in node_name:
+                    knode_name, cond = node_name.split('(')
+                    name = knode_name + '_subj' + '(' + cond + '.' + str(subj_idx)
+                else:
+                    name = node_name + '_subj.' + str(subj_idx)
+
+                values_tuple[i_value] = (name, float(node_row['node'].value))
             stats.update(dict(values_tuple))
         return pd.Series(stats)
 
@@ -164,8 +171,16 @@ class EstimationSingleOptimization(Estimation):
 
     def get_stats(self):
         stats = {}
-        for idx, res in enumerate(self.results):
-            values_tuple = [(key + '_subj.' + str(idx), float(value)) for (key,value) in res.iteritems()]
+        for subj_idx, model in enumerate(self.models):
+            values_tuple = [None] * len(model.get_stochastics())
+            for (i_value, (node_name, node_row)) in enumerate(model.iter_stochastics()):
+                if '(' in node_name:
+                    knode_name, cond = node_name.split('(')
+                    name = knode_name + '_subj' + '(' + cond + '.' + str(subj_idx)
+                else:
+                    name = node_name + '_subj.' + str(subj_idx)
+
+                values_tuple[i_value] = (name, float(node_row['node'].value))
             stats.update(dict(values_tuple))
         return pd.Series(stats)
 

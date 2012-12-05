@@ -346,18 +346,18 @@ if __name__ == "__main__":
 
     if result.run:
         if result.group:
-#            estimators = ['HDDMTruncated','Quantiles_group', 'HDDMsharedVar']
             estimators = ['HDDMTruncated','Quantiles_group', 'HDDMsharedVar']
         else:
+#            estimators = ['SingleMAP']
             estimators = None
 
         if result.debug:
             if run_trials:
                 trial_exp = run_experiments(n_subjs=6, n_trials=[50,100], estimators=estimators, n_params=2, n_datasets=1,
-                                            include=include, view=view)
+                                            include=include, view=view, depends_on = {'v':'condition'})
             if run_subjs:
                 subj_exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
-                                           view=view, estimators=estimators)
+                                           view=view, estimators=estimators, depends_on = {'v':'condition'})
             if run_recovery:
                 recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1,
                                                include=include, view=view, depends_on = {'v':'condition'})
