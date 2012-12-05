@@ -3,6 +3,7 @@ from copy import deepcopy, copy
 import time
 import argparse
 import sys
+import kabuki
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import Grid
@@ -115,13 +116,13 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     return n_subjs_results
 
 def plot_trial_exp(data):
-    grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'params')).agg((np.mean, np.std))
-    n_params = len(grouped.groupby(level=('params',)).groups.keys())
+    grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'knode')).agg((np.mean, np.std))
+    n_params = len(grouped.groupby(level=('knode',)).groups.keys())
 
     fig = plt.figure(figsize=(8, n_params*3))
     grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False, label_mode='L', share_x=True, share_y=False, axes_pad=.25)
 
-    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
+    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('knode',))):
         ax = grid[i]
         ax.set_ylabel(PARAM_NAMES[param_name])
         ax.set_xlim(5, 95)
@@ -139,13 +140,13 @@ def plot_trial_exp(data):
     plt.legend(loc=0)
 
 def plot_subj_exp(data):
-    grouped = data.Err.dropna().groupby(level=('n_subjs', 'estimation', 'params')).agg((np.mean, np.std))
-    n_params = len(grouped.groupby(level=('params',)).groups.keys())
+    grouped = data.Err.dropna().groupby(level=('n_subjs', 'estimation', 'knode')).agg((np.mean, np.std))
+    n_params = len(grouped.groupby(level=('knode',)).groups.keys())
 
     fig = plt.figure(figsize=(8, n_params*3))
     grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False, label_mode='L', share_x=True, share_y=False, axes_pad=.25)
 
-    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('params',))):
+    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('knode',))):
         ax = grid[i]
         ax.set_ylabel(PARAM_NAMES[param_name])
         ax.set_xlim(2, 30)
@@ -164,10 +165,10 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=Tr
 
     data = data[['truth', 'estimate','Err']].dropna()
     ni = len(data.dropna().groupby(level=['estimation']))
-    nj = len(data.dropna().groupby(level=('params',)))
+    nj = len(data.dropna().groupby(level=('knode',)))
 
     data = data[(data['estimate'] > abs_min) & (data['estimate'] < abs_max)]
-    data_params = data.groupby(level=('params',))[['truth', 'estimate']]
+    data_params = data.groupby(level=('knode',))[['truth', 'estimate']]
     mini = data_params.min().min(axis=1)
     maxi = data_params.max().max(axis=1)
     print mini
@@ -176,8 +177,8 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=Tr
     fig = plt.figure(figsize=(9, 3*nj))
     grid = Grid(fig, 111, nrows_ncols=(nj, ni), add_all=True, share_all=False, label_mode='L', share_x=False, share_y=False)
     for i, (est_name, est_data) in enumerate(data.dropna().groupby(level=['estimation'])):
-        nj = len(est_data.groupby(level=('params',)))
-        for j, (param_name, param_data) in enumerate(est_data.groupby(level=('params',))):
+        nj = len(est_data.groupby(level=('knode',)))
+        for j, (param_name, param_data) in enumerate(est_data.groupby(level=('knode',))):
             ax = grid.axes_column[i][j] #plt.subplot2grid((nj, ni), (j, i))
             # if i == 0:
             #     ax.set_title(est_name)
@@ -189,8 +190,9 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=Tr
             ax.set_ylabel(PARAM_NAMES[param_name])
             kwargs = {'gridsize': gridsize, 'bins': 'log', 'extent': (mini[param_name], maxi[param_name], mini[param_name], maxi[param_name])}
             ax.hexbin(param_data.truth, param_data.estimate, label='post pred lb', **kwargs)
+#            kabuki.debug_here()
 
-            plt.legend()
+#            plt.legend()
 
     if save:
         plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
@@ -199,7 +201,7 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=Tr
 def one_vs_others(data, main_estimator, tag='', gridsize=100, save=True):
 
     data = data[['truth', 'estimate','Err']].dropna()
-    data_params = data.groupby(level=('params',))[['truth', 'estimate']]
+    data_params = data.groupby(level=('knode',))[['truth', 'estimate']]
     mini = data_params.min().min(axis=1)
     maxi = data_params.max().max(axis=1)
     print mini
@@ -208,10 +210,10 @@ def one_vs_others(data, main_estimator, tag='', gridsize=100, save=True):
     grouped_data = data.groupby(level=['estimation'])
     main_data = grouped_data.get_group(main_estimator)
     ni = len(grouped_data) - 1
-    nj = len(data.groupby(level=('params',)))
+    nj = len(data.groupby(level=('knode',)))
     fig = plt.figure()#figsize=(9, 3*nj))
     counter = 0
-    for j, (param_name, param_data) in enumerate(data.groupby(level=('params',))):
+    for j, (param_name, param_data) in enumerate(data.groupby(level=('knode',))):
         for i, (est_name, est_data) in enumerate(param_data.groupby(level=('estimation',))):
             if est_name == main_estimator:
                 continue
@@ -257,7 +259,7 @@ def concat_dicts(d, names=()):
 
 
 def merge(data):
-    results = concat_dicts(data, names=['n_subjs', 'n_trials', 'n_outliers', 'estimation', 'param_seed', 'data_seed'])
+    results = concat_dicts(data, names=['n_subjs', 'n_trials', 'n_outliers', 'estimation', 'param_seed', 'data_seed', 'param'])
     return results
 
 def select(stats, param_names, subj=True):
@@ -283,7 +285,7 @@ def select(stats, param_names, subj=True):
 
         extracted[name] = stats.ix[select]
 
-    return pd.concat(extracted, names=['params'])
+    return pd.concat(extracted, names=['knode'])
 
 
 
