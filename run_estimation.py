@@ -353,6 +353,7 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_trials:
+                estimators = ['SingleMAP']
                 trial_exp = run_experiments(n_subjs=6, n_trials=[50,100], estimators=estimators, n_params=2, n_datasets=1,
                                             include=include, view=view, depends_on = {'v':'condition'})
             if run_subjs:
