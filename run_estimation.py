@@ -64,9 +64,9 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
     estimator_dict = OrderedDict()
     if 'SingleMAP' in estimators:
-        estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 5}}
+        estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 50}}
     if 'SingleMAPoutliers' in estimators:
-        estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 3}}
+        estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 50}}
     if 'HDDMsharedVar' in estimators:
         estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
 #        estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 150, 'burn': 0000, 'map': True}}
@@ -75,10 +75,10 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 #        estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 150, 'burn': 0000, 'map': True}}
     if 'Quantiles_subj' in estimators:
         estimator_dict['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
-                                           'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 5}}
+                                           'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
     if 'Quantiles_group' in estimators:
         estimator_dict['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization,
-                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 5}}
+                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
 
 
     n_subjs_results = {}
@@ -267,7 +267,7 @@ def select(stats, param_names, subj=True):
         param_names = [param_names]
 
     if subj:
-        estimators = ['SingleMAP', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers']
+        estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers']
     else:
         estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar']
 
@@ -372,7 +372,7 @@ if __name__ == "__main__":
                 trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
-                subj_exp = run_experiments(n_subjs=list(np.arange(4, 30, 2)), n_trials=20, n_params=5, n_datasets=5,
+                subj_exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=10, n_datasets=1,
                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_recovery:
                 recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include,

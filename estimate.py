@@ -273,6 +273,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
         if len(stats) == 0:
             return stats
     else:
+        print "Working on job %s (%s)" % (h, estimation)
         pd.DataFrame().save(fname)
         generate_data=True
 
@@ -458,3 +459,19 @@ def fix_wrong_subjects_name(data):
 
     return data
 
+def use_group_truth_value_for_subjects_in_HDDMsharedVar(data):
+
+    for t_idx in data.index:
+        if t_idx[3] == 'HDDMsharedVar' and t_idx[-1].startswith('s') and '_subj' in t_idx[-1]:
+            group_idx = list(t_idx)
+            group_idx[-1] = group_idx[-1][:2]
+            group_idx = tuple(group_idx)
+
+            estimate_value = data.get_value(group_idx, col='estimate')
+            data.set_value(t_idx, col='estimate', value=estimate_value)
+
+    data['MSE'] = np.asarray((data['truth'] - data['estimate'])**2, dtype=np.float32)
+    data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))
+    data['relErr'] = np.abs(np.asarray((data['Err'] / data['truth']), dtype=np.float32))
+
+    return data
