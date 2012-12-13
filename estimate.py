@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import copy
 import os.path
+import time
 
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
@@ -240,7 +241,7 @@ def make_hash(o):
 
     return hash(tuple(frozenset(new_o.items())))
 
-def single_recovery_fixed_n_trials(estimation, kw_dict):
+def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -283,11 +284,23 @@ def single_recovery_fixed_n_trials(estimation, kw_dict):
 
     #estimate
     if generate_data:
-        data = DataFrame(data)
-        est = estimation(data, **kw_dict['init'])
-        est.estimate(**kw_dict['estimate'])
-        stats = est.get_stats()
-        stats.save(fname)
+        try:
+            data = DataFrame(data)
+            est = estimation(data, **kw_dict['init'])
+            est.estimate(**kw_dict['estimate'])
+            stats = est.get_stats()
+            stats.save(fname)
+
+        #raise or log errors
+        except Exception as err:
+            if raise_errors:
+                raise err
+            else:
+                with open('err.log','a') as f:
+                    f.write('******* %s\n ' % time.ctime())
+                    f.write('%s\n' % pd.Series(kw_dict))
+                    f.write('%s: %s\n' % (type(err), err))
+                return pd.DataFrame()
 
     return combine_params_and_stats(pd.Series(group_params), stats)
 
@@ -325,7 +338,7 @@ def multi_recovery_fixed_n_trials(estimation, seed_params,
                 d_results[d_seed] = analysis_func(kw_seed)
             else:
                 # append to job queue
-                d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, estimation, kw_seed)
+                d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, estimation, kw_seed, False)
 
         p_results[p_seed] = d_results
 
