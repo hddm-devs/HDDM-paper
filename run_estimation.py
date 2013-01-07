@@ -131,6 +131,7 @@ def plot_trial_exp(data):
             ax.errorbar(est_data.index.get_level_values('n_trials'),
                         est_data['mean'], label=est_name, lw=2.,
                         marker='o')
+            1/0
             #ax.yaxis.set_major_locator(MaxNLocator(20))
 
 
@@ -319,6 +320,7 @@ if __name__ == "__main__":
     parser.add_argument('-z', action='store_true', dest='z', default=False)
     parser.add_argument('--full', action='store_true', dest='full', default=False)
     parser.add_argument('--debug', action='store_true', dest='debug', default=False)
+    parser.add_argument('--discardfig', action='store_true', dest='discardfig', default=False)
 
     include=['v','t','a']
 
@@ -334,6 +336,7 @@ if __name__ == "__main__":
         include.append('z')
 
     run_trials, run_subjs, run_recovery, run_outliers = result.trials, result.subjs, result.recovery, result.outliers
+    savefig = not result.discardfig
 
     if result.all:
         run_trials, run_subjs, run_recovery = True, True, True
@@ -412,21 +415,25 @@ if __name__ == "__main__":
     if result.analyze:
         if run_trials:
             plot_trial_exp(select(trial_data, include, subj=True))
-            plt.savefig('trial_exp_subj'+str(include)+'.png')
-            plt.savefig('trial_exp_subj'+str(include)+'.svg')
+            if savefig:
+                plt.savefig('trial_exp_subj'+str(include)+'.png')
+                plt.savefig('trial_exp_subj'+str(include)+'.svg')
 
             plot_trial_exp(select(trial_data, include, subj=False))
-            plt.savefig('trial_exp_group'+str(include)+'.png')
-            plt.savefig('trial_exp_group'+str(include)+'.svg')
+            if savefig:
+                plt.savefig('trial_exp_group'+str(include)+'.png')
+                plt.savefig('trial_exp_group'+str(include)+'.svg')
 
         if run_subjs:
             plot_subj_exp(select(subj_data, include, subj=True))
-            plt.savefig('subj_exp_subj'+str(include)+'.png')
-            plt.savefig('subj_exp_subj'+str(include)+'.svg')
+            if savefig:
+                plt.savefig('subj_exp_subj'+str(include)+'.png')
+                plt.savefig('subj_exp_subj'+str(include)+'.svg')
 
             plot_subj_exp(select(subj_data, include, subj=False))
-            plt.savefig('subj_exp_group'+str(include)+'.png')
-            plt.savefig('subj_exp_group'+str(include)+'.svg')
+            if savefig:
+                plt.savefig('subj_exp_group'+str(include)+'.png')
+                plt.savefig('subj_exp_group'+str(include)+'.svg')
 
         if run_recovery:
 #            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
@@ -434,6 +441,6 @@ if __name__ == "__main__":
             plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
 
         if run_outliers:
-            one_vs_others(select(outliers_data, include, subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=False)
+            one_vs_others(select(outliers_data, include, subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=savefig)
 
     sys.exit(0)
