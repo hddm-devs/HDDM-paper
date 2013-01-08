@@ -115,52 +115,40 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
     return n_subjs_results
 
-def plot_trial_exp(data):
-    grouped = data.MSE.dropna().groupby(level=('n_trials', 'estimation', 'knode')).agg((np.mean, np.std))
+
+def plot_exp(data, stat, plot_type, figname=None):
+    if plot_type == 'subjs':
+        level_name = 'n_subjs'
+        xlabel = 'subjs'
+    elif plot_type == 'trials':
+        level_name = 'n_trials'
+        xlabel = 'trials'
+    else:
+        raise ValueError('unknown plot_type')
+    grouped = data.Err.dropna().groupby(level=(level_name, 'estimation', 'knode')).agg((stat, np.std))
     n_params = len(grouped.groupby(level=('knode',)).groups.keys())
 
     fig = plt.figure(figsize=(8, n_params*3))
-    grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False, label_mode='L', share_x=True, share_y=False, axes_pad=.25)
+    grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False,
+                label_mode='L', share_x=True, share_y=False, axes_pad=.25)
 
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('knode',))):
         ax = grid[i]
         ax.set_ylabel(PARAM_NAMES[param_name])
-        ax.set_xlim(5, 95)
+#        ax.set_xlim(2, 30)
         ax.set_yscale('log')
         for est_name, est_data in param_data.groupby(level=['estimation']):
-            ax.errorbar(est_data.index.get_level_values('n_trials'),
-                        est_data['mean'], label=est_name, lw=2.,
+            ax.errorbar(est_data.index.get_level_values(level_name),
+                        est_data[stat.__name__], label=est_name, lw=2.,
                         marker='o')
-            1/0
-            #ax.yaxis.set_major_locator(MaxNLocator(20))
 
-
-        #ax.set_ylabel('MSE')
-
-    ax.set_xlabel('trials')
+    ax.set_xlabel(xlabel)
     plt.legend(loc=0)
 
-def plot_subj_exp(data):
-    grouped = data.Err.dropna().groupby(level=('n_subjs', 'estimation', 'knode')).agg((np.mean, np.std))
-    n_params = len(grouped.groupby(level=('knode',)).groups.keys())
+    if figname is not None:
+        plt.savefig('%s_exp_%s.png'%(plot_type, figname))
+        plt.savefig('%s_exp_%s.svg'%(plot_type, figname))
 
-    fig = plt.figure(figsize=(8, n_params*3))
-    grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False, label_mode='L', share_x=True, share_y=False, axes_pad=.25)
-
-    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('knode',))):
-        ax = grid[i]
-        ax.set_ylabel(PARAM_NAMES[param_name])
-        ax.set_xlim(2, 30)
-        ax.set_yscale('log')
-        for est_name, est_data in param_data.groupby(level=['estimation']):
-            ax.errorbar(est_data.index.get_level_values('n_subjs'),
-                        est_data['mean'], label=est_name, lw=2.,
-                        marker='o')
-            #ax.yaxis.set_major_locator(MaxNLocator(7))
-
-        #ax.set_ylabel('MSE')
-    ax.set_xlabel('subjs')
-    plt.legend(loc=0)
 
 def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=True):
 
@@ -399,8 +387,8 @@ if __name__ == "__main__":
 
     if result.load:
         if run_trials:
-            trial_data = pd.load('trial'+str(include)+'.dat')
-            trial_data['estimate'] = np.float64(trial_data['estimate'])
+            trials_data = pd.load('trial'+str(include)+'.dat')
+            trials_data['estimate'] = np.float64(trials_data['estimate'])
         if run_subjs:
             subj_data = pd.load('subj'+str(include)+'.dat')
             subj_data['estimate'] = np.float64(subj_data['estimate'])
@@ -413,27 +401,25 @@ if __name__ == "__main__":
 
 
     if result.analyze:
-        if run_trials:
-            plot_trial_exp(select(trial_data, include, subj=True))
+        if run_subjs or run_trials:
+            figname = None
+            stat=np.median
             if savefig:
-                plt.savefig('trial_exp_subj'+str(include)+'.png')
-                plt.savefig('trial_exp_subj'+str(include)+'.svg')
-
-            plot_trial_exp(select(trial_data, include, subj=False))
-            if savefig:
-                plt.savefig('trial_exp_group'+str(include)+'.png')
-                plt.savefig('trial_exp_group'+str(include)+'.svg')
+                figname = ''
+                if result.full:
+                    figname += 'full'
+                else:
+                    figname += 'simple'
+                figname += ('_' + stat.__name__)
 
         if run_subjs:
-            plot_subj_exp(select(subj_data, include, subj=True))
-            if savefig:
-                plt.savefig('subj_exp_subj'+str(include)+'.png')
-                plt.savefig('subj_exp_subj'+str(include)+'.svg')
+            plot_exp(select(subj_data, include, subj=True) , stat=stat, plot_type='subjs', figname='single_' + figname)
+            plot_exp(select(subj_data, include, subj=False), stat=stat, plot_type='subjs', figname='group_' + figname)
+        if run_trials:
+            plot_exp(select(trials_data, include, subj=True) , stat=stat, plot_type='trials', figname='single_' + figname)
+            plot_exp(select(trials_data, include, subj=False), stat=stat, plot_type='trials', figname='group_' + figname)
 
-            plot_subj_exp(select(subj_data, include, subj=False))
-            if savefig:
-                plt.savefig('subj_exp_group'+str(include)+'.png')
-                plt.savefig('subj_exp_group'+str(include)+'.svg')
+
 
         if run_recovery:
 #            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
