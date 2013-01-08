@@ -360,7 +360,7 @@ if __name__ == "__main__":
 
         else:
             if run_trials:
-                trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)), n_params=5, n_datasets=5,
+                trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)) + [150,250], n_params=5, n_datasets=5,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
                 subj_exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=10, n_datasets=1,
