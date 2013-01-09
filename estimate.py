@@ -287,16 +287,16 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
         #get list of files
         #if the length of the list is larger than one, then more than one worker is trying to perform the same job
         #in this case we leave only the job with the "largest file name"
+
         files = glob.glob(fname + '.*')
-        if len(files) > 1:
-            #if we need to kill the job
-            if max(files) != temp_fname:
-                os.remove(temp_fname)
-                stats = pd.load(fname)
-                print "Loading job %s" % h
-                generate_data=False
-                if len(stats) == 0:
-                    return stats
+        #if we need to kill the job
+        if (len(files) > 1) and (max(files) != temp_fname):
+            os.remove(temp_fname)
+            stats = pd.load(fname)
+            print "Loading job %s" % h
+            generate_data=False
+            if len(stats) == 0:
+                return stats
 
         #else we will continue as usuall
         else:
