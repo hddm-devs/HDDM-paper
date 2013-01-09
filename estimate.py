@@ -309,12 +309,14 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
     #estimate
     if generate_data:
         try:
+            print "Estimation began on %s" % time.ctime()
             data = DataFrame(data)
             est = estimation(data, **kw_dict['init'])
             est.estimate(**kw_dict['estimate'])
             stats = est.get_stats()
             stats.save(fname)
             os.remove(temp_fname)
+            print "Estimation end on %s" % time.ctime()
 
         #raise or log errors
         except Exception as err:
