@@ -2,6 +2,7 @@ import hddm
 import numpy as np
 import pandas as pd
 import copy
+import os
 import os.path
 import time
 import glob
@@ -280,7 +281,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
         pd.DataFrame().save(fname)
 
         #create a temporary file with a unique name
-        temp_fname = fname + '.' + str(np.random.randint(2**32))
+        temp_fname = fname + '.' + str(os.getpid())
         pd.DataFrame().save(temp_fname)
 
         #get list of files
