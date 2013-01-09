@@ -4,6 +4,7 @@ import pandas as pd
 import copy
 import os.path
 import time
+import glob
 
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
@@ -274,9 +275,32 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
         if len(stats) == 0:
             return stats
     else:
-        print "Working on job %s (%s)" % (h, estimation)
+        #create a file that holds the results and to make sure that no other worker would start
+        #working on this job
         pd.DataFrame().save(fname)
-        generate_data=True
+
+        #create a temporary file with a unique name
+        temp_fname = fname + '.' + str(np.random.randint(2**32))
+        pd.DataFrame().save(temp_fname)
+
+        #get list of files
+        #if the length of the list is larger than one, then more than one worker is trying to perform the same job
+        #in this case we leave only the job with the "largest file name"
+        files = glob.glob(fname + '.*')
+        if len(files) > 1:
+            #if we need to kill the job
+            if max(files) != temp_fname:
+                os.remove(temp_fname)
+                stats = pd.load(fname)
+                print "Loading job %s" % h
+                generate_data=False
+                if len(stats) == 0:
+                    return stats
+
+        #else we will continue as usuall
+        else:
+            print "Working on job %s (%s)" % (h, estimation)
+            generate_data=True
 
     #generate params and data
     data, group_params = hddm.generate.gen_rand_data(params, generate_data=generate_data, **kw_dict['data'])
@@ -290,6 +314,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
             est.estimate(**kw_dict['estimate'])
             stats = est.get_stats()
             stats.save(fname)
+            os.remove(temp_fname)
 
         #raise or log errors
         except Exception as err:
