@@ -116,7 +116,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     return n_subjs_results
 
 
-def plot_exp(data, stat, plot_type, figname=None):
+def plot_exp(data, stat, plot_type, figname, savefig):
     if plot_type == 'subjs':
         level_name = 'n_subjs'
         xlabel = 'subjs'
@@ -134,9 +134,10 @@ def plot_exp(data, stat, plot_type, figname=None):
 
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('knode',))):
         ax = grid[i]
-        ax.set_ylabel(PARAM_NAMES[param_name])
+        ax.set_ylabel(param_name)
+#        ax.set_ylabel(PARAM_NAMES[param_name])
 #        ax.set_xlim(2, 30)
-        ax.set_yscale('log')
+#        ax.set_yscale('log')
         for est_name, est_data in param_data.groupby(level=['estimation']):
             ax.errorbar(est_data.index.get_level_values(level_name),
                         est_data[stat.__name__], label=est_name, lw=2.,
@@ -144,10 +145,12 @@ def plot_exp(data, stat, plot_type, figname=None):
 
     ax.set_xlabel(xlabel)
     plt.legend(loc=0)
+    title = '%s_exp_%s'%(plot_type, figname)
+    plt.suptitle(title)
 
-    if figname is not None:
-        plt.savefig('%s_exp_%s.png'%(plot_type, figname))
-        plt.savefig('%s_exp_%s.svg'%(plot_type, figname))
+    if savefig:
+        plt.savefig(title + '.png')
+        plt.savefig(title + '.svg')
 
 
 def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=True):
@@ -251,7 +254,8 @@ def merge(data):
     results = concat_dicts(data, names=['n_subjs', 'n_trials', 'n_outliers', 'estimation', 'param_seed', 'data_seed', 'param'])
     return results
 
-def select(stats, param_names, subj=True):
+def select(stats, param_names, depends_on, subj=True):
+
     if isinstance(param_names, str):
         param_names = [param_names]
 
@@ -263,16 +267,24 @@ def select(stats, param_names, subj=True):
     extracted = {}
     index = stats.index
     for name in param_names:
-        select = []
-        for ix in index:
-            if subj:
-                if ix[-4] in estimators and ix[-1].startswith(name) and 'subj' in ix[-1]:
-                    select.append(ix)
+        for cond in depends_on.get(name, [None]):
+            if (cond is not None):
+                fullname = "%s(%s)" % (name, cond)
             else:
-                if ix[-4] in estimators and ((ix[-1] == name) or (ix[-1].startswith(name + '('))):
-                    select.append(ix)
+                fullname = name
 
-        extracted[name] = stats.ix[select]
+            selected = []
+            for ix in index:
+                if subj:
+                    if ix[-4] in estimators and ix[-1].startswith(name) and 'subj' in ix[-1]:
+                        if (cond is None) or (('(%s)' % cond) in ix[-1]):
+                            selected.append(ix)
+                else:
+                    if ix[-4] in estimators and ((ix[-1] == name) or (ix[-1].startswith(name + '('))):
+                        if (cond is None) or (('(%s)' % cond) in ix[-1]):
+                            selected.append(ix)
+
+            extracted[fullname] = stats.ix[selected]
 
     return pd.concat(extracted, names=['knode'])
 
@@ -402,22 +414,23 @@ if __name__ == "__main__":
 
     if result.analyze:
         if run_subjs or run_trials:
-            figname = None
+            depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
             stat=np.median
-            if savefig:
-                figname = ''
-                if result.full:
-                    figname += 'full'
-                else:
-                    figname += 'simple'
-                figname += ('_' + stat.__name__)
+
+            #create figname
+            figname = ''
+            if result.full:
+                figname += 'full'
+            else:
+                figname += 'simple'
+            figname += ('_' + stat.__name__)
 
         if run_subjs:
-            plot_exp(select(subj_data, include, subj=True) , stat=stat, plot_type='subjs', figname='single_' + figname)
-            plot_exp(select(subj_data, include, subj=False), stat=stat, plot_type='subjs', figname='group_' + figname)
+            plot_exp(select(subj_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_' + figname, savefig=savefig)
+            plot_exp(select(subj_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_' + figname, savefig=savefig)
         if run_trials:
-            plot_exp(select(trials_data, include, subj=True) , stat=stat, plot_type='trials', figname='single_' + figname)
-            plot_exp(select(trials_data, include, subj=False), stat=stat, plot_type='trials', figname='group_' + figname)
+            plot_exp(select(trials_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='trials', figname='single_' + figname, savefig=savefig)
+            plot_exp(select(trials_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='trials', figname='group_' + figname, savefig=savefig)
 
 
 
