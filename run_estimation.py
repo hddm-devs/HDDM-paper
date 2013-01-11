@@ -15,6 +15,9 @@ from IPython import parallel
 from IPython.parallel.client.asyncresult import AsyncResult
 import estimate as est
 
+#COLORS = {'HDDMsharedVar': 'Blue', 'HDDMTruncted': 'Brown', 'Quantiles_group': 'BurlyWood', 'Quantiles_subj': 'CadetBlue', 
+#          'SingleMAP': 'Chartreuse', 'SingleMAPOutliers': 'red'}
+
 #PARAM_NAMES = {'a': 'threshold',
 #               'v': 'drift-rate',
 #               't': 'non-decision time',
@@ -434,20 +437,24 @@ if __name__ == "__main__":
             figname += ('_' + stat.__name__)
 
         if run_subjs:
+            subj_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(subj_data)
             plot_exp(select(subj_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_' + figname, savefig=savefig)
             plot_exp(select(subj_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_' + figname, savefig=savefig)
         if run_trials:
+            trials_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(trials_data)
             plot_exp(select(trials_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='trials', figname='single_' + figname, savefig=savefig)
             plot_exp(select(trials_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='trials', figname='group_' + figname, savefig=savefig)
 
 
 
         if run_recovery:
+            recovery_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(recovery_data)
 #            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
             plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
             plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
 
         if run_outliers:
+            outliers_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(outliers_data)
             one_vs_others(select(outliers_data, include, subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=savefig)
 
     sys.exit(0)
