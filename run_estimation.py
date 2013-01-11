@@ -31,11 +31,13 @@ PARAM_NAMES = {'a': 'a',
                'sv': 'sv'}
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
-                    estimators=None, n_outliers=(0,), view=None, depends_on = None, n_conds=4):
+                    estimators=None, p_outliers=(0,), view=None, depends_on = None, n_conds=4):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
         n_trials = (n_trials,)
+    if depends_on is None:
+        depends_on = {}
 
     #kwards for gen_rand_data
     subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
@@ -67,12 +69,16 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 50}}
     if 'SingleMAPoutliers' in estimators:
         estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 50}}
+
     if 'HDDMsharedVar' in estimators:
         estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
-#        estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 150, 'burn': 0000, 'map': True}}
+
+    if 'HDDMOutliers' in estimators:
+        estimator_dict['HDDMOutliers'] = {'estimator': est.EstimationHDDMOutliers, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+
     if 'HDDMTruncated' in estimators:
         estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
-#        estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 150, 'burn': 0000, 'map': True}}
+
     if 'Quantiles_subj' in estimators:
         estimator_dict['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
@@ -86,12 +92,14 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         n_trials_results = {}
         for cur_trials in n_trials:
 
-            n_outliers_results = {}
-            for cur_outliers in n_outliers:
+            p_outliers_results = {}
+            for cur_outliers in p_outliers:
 
-                n_fast_outliers = cur_outliers // 2;
-                n_slow_outliers = cur_outliers- n_fast_outliers
-                data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials,
+
+                n_outliers = int(cur_trials * cur_outliers)
+                n_fast_outliers = (n_outliers // 2)
+                n_slow_outliers = n_outliers - n_fast_outliers
+                data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials - n_outliers,
                         'n_fast_outliers': n_fast_outliers, 'n_slow_outliers': n_slow_outliers}
                 #creat kw_dict
                 kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
@@ -104,10 +112,10 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
                                                          n_datasets=n_datasets, kw_dict=kw_dict_model, view=view)
 
-                n_outliers_results[cur_outliers] = models_results
-            #end of (for cur_outliers in n_outliers)
+                p_outliers_results[cur_outliers] = models_results
+            #end of (for cur_outliers in p_outliers)
 
-            n_trials_results[cur_trials] = n_outliers_results
+            n_trials_results[cur_trials] = p_outliers_results
         #end of (for cur_trials in n_trials)
 
         n_subjs_results[cur_subjs] = n_trials_results
@@ -251,7 +259,7 @@ def concat_dicts(d, names=()):
 
 
 def merge(data):
-    results = concat_dicts(data, names=['n_subjs', 'n_trials', 'n_outliers', 'estimation', 'param_seed', 'data_seed', 'param'])
+    results = concat_dicts(data, names=['n_subjs', 'n_trials', 'p_outliers', 'estimation', 'param_seed', 'data_seed', 'param'])
     return results
 
 def select(stats, param_names, depends_on, subj=True):
@@ -366,9 +374,9 @@ if __name__ == "__main__":
                 recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1,
                                                include=include, view=view, depends_on = {'v':'condition'})
             if run_outliers:
-                outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj']
-                outliers_exp = run_experiments(n_subjs=2, n_trials=250, n_params=3, n_datasets=1, include=include,
-                                              estimators=outliers_estimators, view=view, n_outliers=[0,10,50])
+                outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj','HDDMOutliers']
+                outliers_exp = run_experiments(n_subjs=[4], n_trials=(100), n_params=2, n_datasets=1, include=include,
+                                              estimators=outliers_estimators, view=view, p_outliers=[0.06])
 
         else:
             if run_trials:
@@ -381,9 +389,9 @@ if __name__ == "__main__":
                 recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include,
                                                view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_outliers:
-                outliers_exp = run_experiments(n_subjs=12, n_trials=250, n_params=2, n_datasets=1, include=include, view=view,
-                                               estimators=estimators)
-
+                outliers_estimators = ['HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj', 'Quantiles_group']
+                outliers_exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include,
+                                              estimators=outliers_estimators, view=view, p_outliers=[0.06])
         if run_trials:
             trial_data = merge(trial_exp)
             trial_data.save('trial'+str(include)+'.dat')

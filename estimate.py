@@ -74,6 +74,14 @@ class EstimationHDDMsharedVar(EstimationHDDMBase):
             self.model = hddm.HDDMTruncated(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
 
 
+#HDDM Estimation
+class EstimationHDDMOutliers(EstimationHDDMsharedVar):
+
+    def __init__(self, data, **kwargs):
+        kwargs = copy.deepcopy(kwargs)
+        kwargs['include'] += ['p_outlier']
+        super(EstimationHDDMOutliers, self).__init__(data, **kwargs)
+
 
 #Single MLE Estimation
 class EstimationSingleMLE(Estimation):
