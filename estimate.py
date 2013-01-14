@@ -509,6 +509,9 @@ def fix_wrong_subjects_name(data):
     return data
 
 def use_group_truth_value_for_subjects_in_HDDMsharedVar(data):
+    """
+    assign the group truth value for subjects nodes that do not have one in HDDMsharedVar
+    """
 
     for t_idx in data.index:
         if t_idx[3] == 'HDDMsharedVar' and t_idx[-1].startswith('s') and '_subj' in t_idx[-1]:
@@ -518,6 +521,34 @@ def use_group_truth_value_for_subjects_in_HDDMsharedVar(data):
 
             estimate_value = data.get_value(group_idx, col='estimate')
             data.set_value(t_idx, col='estimate', value=estimate_value)
+
+    data['MSE'] = np.asarray((data['truth'] - data['estimate'])**2, dtype=np.float32)
+    data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))
+    data['relErr'] = np.abs(np.asarray((data['Err'] / data['truth']), dtype=np.float32))
+
+    return data
+
+def get_knode_group_node_name(full_name):
+
+    #if group node
+    if 'subj' not in full_name:
+        return full_name
+
+    else:
+        name, rest = full_name.split('_')
+        if '(' in rest:
+            name += rest[4:].split('.')[0]
+        return name
+
+
+def add_group_stat_to_SingleOptimation(data, stat):
+
+    data = data.copy()
+    sdata = data.select(lambda x:(x[3] == 'Quantiles_subj') and ('subj' in x[-1]))
+    groups = sdata.groupby(lambda x:tuple(list(x[:6]) + [get_knode_group_node_name(x[-1])]))
+    for (t_idx, t_data) in groups:
+        group_estimate = stat(t_data['estimate'])
+        data.set_value(t_idx, col='estimate', value=group_estimate)
 
     data['MSE'] = np.asarray((data['truth'] - data['estimate'])**2, dtype=np.float32)
     data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))

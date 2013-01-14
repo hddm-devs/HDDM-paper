@@ -273,7 +273,7 @@ def select(stats, param_names, depends_on, subj=True):
     if subj:
         estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers', 'HDDMOutliers']
     else:
-        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar', 'HDDMOutliers']
+        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj']
 
     extracted = {}
     index = stats.index
@@ -396,16 +396,24 @@ if __name__ == "__main__":
                 outliers_exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include,
                                               estimators=outliers_estimators, depends_on = {'v':'condition'}, view=view, p_outliers=[0.06])
         if run_trials:
-            trial_data = merge(trial_exp)
-            trial_data.save('trial'+str(include)+'.dat')
+            trials_data = merge(trial_exp)
+            trials_data = est.add_group_stat_to_SingleOptimation(trials_data, np.mean)
+            trials_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(trials_data)
+            trials_data.save('trial'+str(include)+'.dat')
         if run_subjs:
             subj_data = merge(subj_exp)
+            subj_data = est.add_group_stat_to_SingleOptimation(subj_data, np.mean)
+            subj_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(subj_data)
             subj_data.save('subj'+str(include)+'.dat')
         if run_recovery:
             recovery_data = merge(recovery_exp)
+            recovery_data = est.add_group_stat_to_SingleOptimation(recovery_data, np.mean)
+            recovery_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(recovery_data)
             recovery_data.save('recovery'+str(include)+'.dat')
         if run_outliers:
             outliers_data = merge(outliers_exp)
+            outliers_data = est.add_group_stat_to_SingleOptimation(outliers_data, np.mean)
+            outliers_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(outliers_data)
             outliers_data.save('outliers'+str(include)+'.dat')
 
     if result.load:
@@ -425,6 +433,7 @@ if __name__ == "__main__":
 
     if result.analyze:
         if run_subjs or run_trials:
+            include = ['v','a']
             depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
             stat=np.median
 
@@ -437,24 +446,21 @@ if __name__ == "__main__":
             figname += ('_' + stat.__name__)
 
         if run_subjs:
-            subj_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(subj_data)
+
             plot_exp(select(subj_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_' + figname, savefig=savefig)
             plot_exp(select(subj_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_' + figname, savefig=savefig)
         if run_trials:
-            trials_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(trials_data)
             plot_exp(select(trials_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='trials', figname='single_' + figname, savefig=savefig)
             plot_exp(select(trials_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='trials', figname='group_' + figname, savefig=savefig)
 
 
 
         if run_recovery:
-            recovery_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(recovery_data)
 #            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
             plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
             plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
 
         if run_outliers:
-            outliers_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(outliers_data)
             depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
             stat=np.median
 
