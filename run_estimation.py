@@ -394,7 +394,7 @@ if __name__ == "__main__":
             if run_outliers:
                 outliers_estimators = ['HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj', 'Quantiles_group']
                 outliers_exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include,
-                                              estimators=outliers_estimators, view=view, p_outliers=[0.06])
+                                              estimators=outliers_estimators, depends_on = {'v':'condition'}, view=view, p_outliers=[0.06])
         if run_trials:
             trial_data = merge(trial_exp)
             trial_data.save('trial'+str(include)+'.dat')
