@@ -15,7 +15,7 @@ from IPython import parallel
 from IPython.parallel.client.asyncresult import AsyncResult
 import estimate as est
 
-#COLORS = {'HDDMsharedVar': 'Blue', 'HDDMTruncted': 'Brown', 'Quantiles_group': 'BurlyWood', 'Quantiles_subj': 'CadetBlue', 
+#COLORS = {'HDDMsharedVar': 'Blue', 'HDDMTruncted': 'Brown', 'Quantiles_group': 'BurlyWood', 'Quantiles_subj': 'CadetBlue',
 #          'SingleMAP': 'Chartreuse', 'SingleMAPOutliers': 'red'}
 
 #PARAM_NAMES = {'a': 'threshold',
@@ -271,9 +271,9 @@ def select(stats, param_names, depends_on, subj=True):
         param_names = [param_names]
 
     if subj:
-        estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers']
+        estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers', 'HDDMOutliers']
     else:
-        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar']
+        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar', 'HDDMOutliers']
 
     extracted = {}
     index = stats.index
@@ -455,6 +455,20 @@ if __name__ == "__main__":
 
         if run_outliers:
             outliers_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(outliers_data)
-            one_vs_others(select(outliers_data, include, subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=savefig)
+            depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
+            stat=np.median
+
+            #create figname
+            figname = ''
+            if result.full:
+                figname += 'full'
+            else:
+                figname += 'simple'
+            figname += ('_' + stat.__name__)
+
+            plot_exp(select(outliers_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_outliers_' + figname, savefig=savefig)
+            plot_exp(select(outliers_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_outliers_' + figname, savefig=savefig)
+
+#            one_vs_others(select(outliers_data, include, depends_on={},subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=savefig)
 
     sys.exit(0)
