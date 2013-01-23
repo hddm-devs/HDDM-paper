@@ -104,6 +104,12 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                 n_slow_outliers = n_outliers - n_fast_outliers
                 data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials - n_outliers,
                         'n_fast_outliers': n_fast_outliers, 'n_slow_outliers': n_slow_outliers}
+
+                #if this is not a full model we should add exclude params
+                if set(['sv','st','sz','z','a','v','t']) != set(include):
+                    exclude = set(['sv','st','sz','z']) - set(include)
+                    data['exclude'] = exclude
+
                 #creat kw_dict
                 kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
 
