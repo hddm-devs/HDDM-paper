@@ -63,11 +63,6 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     params = {'include': include, 'n_conds': n_conds}
     recover = est.multi_recovery_fixed_n_trials
 
-    #set estimator_dict
-    if estimators is None:
-        estimators = ['SingleMAP', 'HDDMTruncated', 'Quantiles_subj',
-        'Quantiles_group','HDDMsharedVar', 'HDDMGamma']
-
     estimator_dict = OrderedDict()
     if 'SingleMAP' in estimators:
         estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 50}}
@@ -375,8 +370,10 @@ if __name__ == "__main__":
         if result.group:
             estimators = ['HDDMTruncated','Quantiles_group', 'HDDMsharedVar']
         else:
-#            estimators = ['SingleMAP']
-            estimators = None
+            estimators = set(['SingleMAP', 'HDDMTruncated', 'Quantiles_subj',
+            'Quantiles_group','HDDMsharedVar', 'HDDMGamma'])
+            if not result.full:
+                estimators.remove('HDDMTruncated')
 
         if result.debug:
             if run_trials:
