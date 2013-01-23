@@ -74,6 +74,16 @@ class EstimationHDDMsharedVar(EstimationHDDMBase):
             self.model = hddm.HDDMTruncated(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
 
 
+#HDDMGamma Estimation
+class EstimationHDDMGamma(EstimationHDDMBase):
+
+    def __init__(self, data, **kwargs):
+        super(EstimationHDDMGamma, self).__init__(data, **kwargs)
+
+    def init_model(self, data):
+            self.model = hddm.models.HDDMGamma(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
+
+
 #HDDM Estimation
 class EstimationHDDMOutliers(EstimationHDDMsharedVar):
 

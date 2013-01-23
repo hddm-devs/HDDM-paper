@@ -65,7 +65,8 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
     #set estimator_dict
     if estimators is None:
-        estimators = ['SingleMAP', 'HDDMTruncated', 'Quantiles_subj', 'Quantiles_group','HDDMsharedVar']
+        estimators = ['SingleMAP', 'HDDMTruncated', 'Quantiles_subj',
+        'Quantiles_group','HDDMsharedVar', 'HDDMGamma']
 
     estimator_dict = OrderedDict()
     if 'SingleMAP' in estimators:
@@ -75,6 +76,9 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
     if 'HDDMsharedVar' in estimators:
         estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+
+    if 'HDDMGamma' in estimators:
+        estimator_dict['HDDMGamma'] = {'estimator': est.EstimationHDDMGamma, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
 
     if 'HDDMOutliers' in estimators:
         estimator_dict['HDDMOutliers'] = {'estimator': est.EstimationHDDMOutliers, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
@@ -108,7 +112,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                 #if this is not a full model we should add exclude params
                 if set(['sv','st','sz','z','a','v','t']) != set(include):
                     exclude = set(['sv','st','sz','z']) - set(include)
-                    data['exclude'] = exclude
+                    data['exclude_params'] = exclude
 
                 #creat kw_dict
                 kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
@@ -331,6 +335,8 @@ if __name__ == "__main__":
                         help='Run all of the above experiments.')
     parser.add_argument('--group', action='store_true', dest='group', default=False,
                         help='Run only group estimations.')
+    parser.add_argument('--regress', action='store_true', dest='regress', default=False,
+                        help='Run only regression estimations.')
     parser.add_argument('-st', action='store_true', dest='st', default=False)
     parser.add_argument('-sv', action='store_true', dest='sv', default=False)
     parser.add_argument('-sz', action='store_true', dest='sz', default=False)
@@ -353,6 +359,7 @@ if __name__ == "__main__":
         include.append('z')
 
     run_trials, run_subjs, run_recovery, run_outliers = result.trials, result.subjs, result.recovery, result.outliers
+    run_regress = result.regress
     savefig = not result.discardfig
 
     if result.all:
@@ -373,7 +380,7 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_trials:
-                estimators = ['SingleMAP']
+                estimators = ['HDDMGamma']
                 trial_exp = run_experiments(n_subjs=6, n_trials=[50,100], estimators=estimators, n_params=2, n_datasets=1,
                                             include=include, view=view, depends_on = {'v':'condition'})
             if run_subjs:
