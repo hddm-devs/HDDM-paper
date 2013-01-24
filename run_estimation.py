@@ -42,8 +42,16 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     if depends_on is None:
         depends_on = {}
 
+    effects = kwargs.get('effects', None)
+    factor3_vals = p_outliers;
+    if effects is None:
+        is_regress = False
+    else:
+        is_regress = True
+        factor3_vals = effects
+
     #kwards for gen_rand_data
-    subj_noise = {'v':0.1, 'a':0.1, 't':0.05, 'v_slope':0.2, 'v_inter':0.2}
+    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
     if 'z' in include:
         subj_noise['z'] = .1
     if 'sz' in include:
@@ -52,14 +60,8 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         subj_noise['st'] = .05
     if 'sv' in include:
         subj_noise['sv'] = .05
-
-    effects = kwargs.get('effects', None)
-    factor3_vals = p_outliers;
-    if effects is None:
-        is_regress = False
-    else:
-        is_regress = True
-        factor3_vals = effects
+    if is_regress:
+        subj_noise.update({'v_slope':0.2, 'v_inter':0.2})
 
     #kwargs for initialize estimation
     init = {'include': include, 'depends_on': depends_on}
@@ -116,7 +118,11 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
                 #if this is not a full model we should add exclude params
                 if (set(['sv','st','sz','z','a','v','t']) != set(include)) or is_regress:
-                    exclude = set(['sv','st','sz','z', 'reg_outcomes']) - set(include)
+                    if is_regress:
+                        exclude = set(['sv','st','sz','z', 'reg_outcomes']) - set(include)
+                    else:
+                        exclude = set(['sv','st','sz','z']) - set(include)
+
 
                 #create kw_dict['data']
                 if is_regress:
