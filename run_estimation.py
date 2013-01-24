@@ -34,7 +34,7 @@ PARAM_NAMES = {'a': 'a',
                'sv': 'sv'}
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
-                    estimators=None, p_outliers=(0,), view=None, depends_on = None, n_conds=4):
+                    estimators=None, p_outliers=(0,), view=None, depends_on = None, n_conds=4, **kwargs):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
@@ -43,7 +43,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         depends_on = {}
 
     #kwards for gen_rand_data
-    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
+    subj_noise = {'v':0.1, 'a':0.1, 't':0.05, 'v_slope':0.2, 'v_inter':0.2}
     if 'z' in include:
         subj_noise['z'] = .1
     if 'sz' in include:
@@ -52,6 +52,14 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         subj_noise['st'] = .05
     if 'sv' in include:
         subj_noise['sv'] = .05
+
+    effects = kwargs.get('effects', None)
+    factor3_vals = p_outliers;
+    if effects is None:
+        is_regress = False
+    else:
+        is_regress = True
+        factor3_vals = effects
 
     #kwargs for initialize estimation
     init = {'include': include, 'depends_on': depends_on}
@@ -78,6 +86,12 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     if 'HDDMOutliers' in estimators:
         estimator_dict['HDDMOutliers'] = {'estimator': est.EstimationHDDMOutliers, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
 
+    if 'HDDMRegressor' in estimators:
+        estimator_dict['HDDMRegressor'] = {'estimator': est.EstimationHDDMRegressor, 'params': {'samples': 35000, 'burn': 30000, 'map': False}}
+
+    if 'SingleRegressor' in estimators:
+        estimator_dict['SingleRegressor'] = {'estimator': est.SingleRegressor, 'params': {'samples': 35000, 'burn': 30000, 'map': False}}
+
     if 'HDDMTruncated' in estimators:
         estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
 
@@ -94,23 +108,38 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         n_trials_results = {}
         for cur_trials in n_trials:
 
-            p_outliers_results = {}
-            for cur_outliers in p_outliers:
+            factor3_results = {}
+            for cur_value in factor3_vals:
 
-
-                n_outliers = int(cur_trials * cur_outliers)
-                n_fast_outliers = (n_outliers // 2)
-                n_slow_outliers = n_outliers - n_fast_outliers
-                data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials - n_outliers,
-                        'n_fast_outliers': n_fast_outliers, 'n_slow_outliers': n_slow_outliers}
+                #create kw_dict
+                kw_dict = {'params': params, 'init': init, 'estimate': estimate}
 
                 #if this is not a full model we should add exclude params
-                if set(['sv','st','sz','z','a','v','t']) != set(include):
-                    exclude = set(['sv','st','sz','z']) - set(include)
-                    data['exclude_params'] = exclude
+                if (set(['sv','st','sz','z','a','v','t']) != set(include)) or is_regress:
+                    exclude = set(['sv','st','sz','z', 'reg_outcomes']) - set(include)
 
-                #creat kw_dict
-                kw_dict = {'params': params, 'data': data, 'init': init, 'estimate': estimate}
+                #create kw_dict['data']
+                if is_regress:
+                    reg_func = lambda args, cols: args[0]*cols[:,0]+args[1]
+                    reg = {'func': reg_func, 'args':['v_slope','v_inter'], 'covariates': 'cov', 'outcome':'v'}
+                    init['regressor'] = reg
+                    kw_dict['init'] = init
+
+                    reg_data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials,
+                                'effect': cur_value, 'exclude_params': exclude}
+                    kw_dict['reg_data'] = reg_data
+
+                else:
+                    cur_outliers = cur_value
+                    n_outliers = int(cur_trials * cur_outliers)
+                    n_fast_outliers = (n_outliers // 2)
+                    n_slow_outliers = n_outliers - n_fast_outliers
+                    data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials - n_outliers,
+                            'n_fast_outliers': n_fast_outliers, 'n_slow_outliers': n_slow_outliers, 'exclude_params': exclude}
+
+                    #creat kw_dict
+                    kw_dict['data'] = data
+
 
                 models_results = {}
                 for model_name, descr in estimator_dict.iteritems():
@@ -120,10 +149,10 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
                                                          n_datasets=n_datasets, kw_dict=kw_dict_model, view=view)
 
-                p_outliers_results[cur_outliers] = models_results
-            #end of (for cur_outliers in p_outliers)
+                factor3_results[cur_value] = models_results
+            #end of (for cur_outliers in factor3_vals)
 
-            n_trials_results[cur_trials] = p_outliers_results
+            n_trials_results[cur_trials] = factor3_results
         #end of (for cur_trials in n_trials)
 
         n_subjs_results[cur_subjs] = n_trials_results
@@ -390,6 +419,11 @@ if __name__ == "__main__":
                 outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj','HDDMOutliers']
                 outliers_exp = run_experiments(n_subjs=[4], n_trials=(100), n_params=2, n_datasets=1, include=include,
                                               estimators=outliers_estimators, view=view, p_outliers=[0.06])
+            if run_regress:
+                regress_estimators = ['SingleRegressor', 'HDDMRegressor']
+                include = ('a','v','t','sv')
+                regress_exp = run_experiments(n_subjs=10, n_trials=30, n_params=1, n_datasets=1, include=include,
+                                              estimators=regress_estimators, view=view, effects=[0.1, 0.3])
 
         else:
             if run_trials:
@@ -405,6 +439,12 @@ if __name__ == "__main__":
                 outliers_estimators = ['HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj', 'Quantiles_group']
                 outliers_exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include,
                                               estimators=outliers_estimators, depends_on = {'v':'condition'}, view=view, p_outliers=[0.06])
+            if run_regress:
+                regress_estimators = ['SingleRegressor', 'HDDMRegressor']
+                include = ('a','v','t','sv')
+                regress_exp = run_experiments(n_subjs=12, n_trials=np.arange(30,250,30), n_params=25, n_datasets=1, include=include,
+                                              estimators=regress_estimators, view=view, effects=[0.1, 0.3, 0.5])
+
         if run_trials:
             trials_data = merge(trial_exp)
             trials_data = est.add_group_stat_to_SingleOptimation(trials_data, np.mean)
@@ -425,6 +465,9 @@ if __name__ == "__main__":
             outliers_data = est.add_group_stat_to_SingleOptimation(outliers_data, np.mean)
             outliers_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(outliers_data)
             outliers_data.save('outliers'+str(include)+'.dat')
+        if run_regress:
+            regress_data = merge(regress_exp)
+            regress_data.save('regress'+str(include)+'.dat')
 
     if result.load:
         if run_trials:
@@ -439,6 +482,10 @@ if __name__ == "__main__":
         if run_outliers:
             outliers_data = pd.load('outliers'+str(include)+'.dat')
             outliers_data['estimate'] = np.float64(outliers_data['estimate'])
+        if run_regress:
+            regress_data = pd.load('regress'+str(include)+'.dat')
+            regress_data['estimate'] = np.float64(regress_data['estimate'])
+
 
 
     if result.analyze:

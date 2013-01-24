@@ -6,6 +6,7 @@ import os
 import os.path
 import time
 import glob
+import generate_regression as genreg
 
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
@@ -83,8 +84,54 @@ class EstimationHDDMGamma(EstimationHDDMBase):
     def init_model(self, data):
             self.model = hddm.models.HDDMGamma(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
 
+#HDDMRegressor Estimation
+class EstimationHDDMRegressor(EstimationHDDMBase):
 
-#HDDM Estimation
+    def __init__(self, data, **kwargs):
+        super(EstimationHDDMRegressor, self).__init__(data, **kwargs)
+
+    def init_model(self, data):
+            self.model = hddm.models.HDDMRegressor(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
+
+#single HDDMRegressors Estimation
+class SingleRegressor(Estimation):
+
+    def __init__(self, data, **kwargs):
+        super(SingleRegressor, self).__init__(data, **kwargs)
+
+        #create an HDDM model for each subject
+        grouped_data = data.groupby('subj_idx')
+        self.models = []
+        for subj_idx, subj_data in grouped_data:
+            model = hddm.models.HDDMRegressor(subj_data.to_records(), is_group_model=False, **kwargs)
+            self.models.append(model)
+
+    def estimate(self, **ddm_kwargs):
+        samples = ddm_kwargs.pop('samples', 10000)
+        ddm_kwargs.pop('map', False)
+        [model.sample(samples, **ddm_kwargs) for model in self.models]
+
+    def get_stats(self):
+
+        def rename_index(node_name, subj_idx):
+            if '(' in node_name:
+                knode_name, cond = node_name.split('(')
+                name = knode_name + '_subj' + '(' + cond + '.' + str(subj_idx)
+            else:
+                name = node_name + '_subj.' + str(subj_idx)
+            return name
+
+        for subj_idx, model in enumerate(self.models):
+            subj_stats = model.gen_stats()
+            subj_stats.rename(index=lambda x:rename_index(x, subj_idx), inplace=True)
+            if subj_idx == 0:
+                stats = subj_stats
+            else:
+                stats = stats.append(subj_stats)
+
+        return stats
+
+#HDDM with outliers Estimation
 class EstimationHDDMOutliers(EstimationHDDMsharedVar):
 
     def __init__(self, data, **kwargs):
@@ -252,9 +299,13 @@ def make_hash(o):
     if isinstance(o, set) or isinstance(o, tuple) or isinstance(o, list):
         return tuple([make_hash(e) for e in o])
 
+    elif isinstance(o, type(make_hash)):
+        return 1234567890
+
     elif not isinstance(o, dict):
         return hash(o)
 
+    #if o is dict
     new_o = copy.deepcopy(o)
     for k, v in new_o.items():
         new_o[k] = make_hash(v)
@@ -273,12 +324,22 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
             init - for the constructor of the estimation
             estimate - for Estimation().estimate
     """
+    is_regress = kw_dict.has_key('reg_data')
 
-    #generate params and data
-    np.random.seed(kw_dict['seed_params'])
-    n_conds = kw_dict['params'].pop('n_conds', 4)
-    cond_v =  (np.random.rand()*0.4 + 0.1) * 2**np.arange(n_conds)
-    params, joined_params = hddm.generate.gen_rand_params(cond_dict={'v':cond_v}, **kw_dict['params'])
+    #generate params and data for regression experiments
+    if is_regress:
+        np.random.seed(kw_dict['seed_params'])
+        _ = kw_dict['params'].pop('n_conds', None)
+        params = genreg.gen_reg_params(**kw_dict['params'])
+        joined_params = params
+    #generate params and data for other experiments
+    else:
+        np.random.seed(kw_dict['seed_params'])
+        n_conds = kw_dict['params'].pop('n_conds', 4)
+        cond_v =  (np.random.rand()*0.4 + 0.1) * 2**np.arange(n_conds)
+        params, joined_params = hddm.generate.gen_rand_params(cond_dict={'v':cond_v}, **kw_dict['params'])
+
+
     np.random.seed(kw_dict['seed_data'])
 
     #create a job hash
@@ -322,8 +383,15 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
             generate_data=True
 
     #generate params and data
-    data, group_params = hddm.generate.gen_rand_data(params, generate_data=generate_data, **kw_dict['data'])
-    group_params = put_all_params_in_a_single_dict(joined_params, group_params, kw_dict['data']['subj_noise'], kw_dict['init']['depends_on'])
+    if is_regress:
+        params['reg_outcomes'] = 'v'
+        data, group_params = genreg.gen_regression_data(params, generate_data=generate_data, **kw_dict['reg_data'])
+        group_params = {'c1': group_params}
+        subj_noise = kw_dict['reg_data']['subj_noise']
+    else:
+        data, group_params = hddm.generate.gen_rand_data(params, generate_data=generate_data, **kw_dict['data'])
+        subj_noise = kw_dict['data']['subj_noise']
+    group_params = put_all_params_in_a_single_dict(joined_params, group_params, subj_noise, kw_dict['init']['depends_on'])
 
     #estimate
     if generate_data:
@@ -335,7 +403,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
             stats = est.get_stats()
             stats.save(fname)
             os.remove(temp_fname)
-            print "Estimation end on %s" % time.ctime()
+            print "Estimation ended on %s" % time.ctime()
 
         #raise or log errors
         except Exception as err:
@@ -348,7 +416,10 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
                     f.write('%s: %s\n' % (type(err), err))
                 return pd.DataFrame()
 
-    return combine_params_and_stats(pd.Series(group_params), stats)
+    group_params = pd.Series(group_params)
+    if is_regress:
+        group_params = group_params.select(lambda x:'reg_outcomes' not in x)
+    return combine_params_and_stats(group_params, stats)
 
 def combine_params_and_stats(params, stats):
     if isinstance(stats, pd.DataFrame):
@@ -359,7 +430,7 @@ def combine_params_and_stats(params, stats):
         comb = pd.concat([params, stats], axis=1, keys=['truth', 'estimate'])
     comb['MSE'] = np.asarray((comb['truth'] - comb['estimate'])**2, dtype=np.float32)
     comb['Err'] = np.abs(np.asarray((comb['truth'] - comb['estimate']), dtype=np.float32))
-    comb['relErr'] = np.abs(np.asarray((comb['Err'] / comb['truth']), dtype=np.float32))
+    # comb['relErr'] = np.abs(np.asarray((comb['Err'] / comb['truth']), dtype=np.float32))
 
     return comb
 
