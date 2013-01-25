@@ -122,6 +122,8 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                         exclude = set(['sv','st','sz','z', 'reg_outcomes']) - set(include)
                     else:
                         exclude = set(['sv','st','sz','z']) - set(include)
+                else:
+                    exclude = None
 
 
                 #create kw_dict['data']
@@ -141,7 +143,9 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     n_fast_outliers = (n_outliers // 2)
                     n_slow_outliers = n_outliers - n_fast_outliers
                     data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials - n_outliers,
-                            'n_fast_outliers': n_fast_outliers, 'n_slow_outliers': n_slow_outliers, 'exclude_params': exclude}
+                            'n_fast_outliers': n_fast_outliers, 'n_slow_outliers': n_slow_outliers}
+                    if exclude is not None:
+                        data['exclude_params'] = exclude
 
                     #creat kw_dict
                     kw_dict['data'] = data
