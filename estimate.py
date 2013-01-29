@@ -434,7 +434,7 @@ def combine_params_and_stats(params, stats):
 
     return comb
 
-def multi_recovery_fixed_n_trials(estimation, seed_params,
+def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params,
                                   seed_data, n_params, n_datasets, kw_dict, path=None, view=None):
 
     single = single_recovery_fixed_n_trials
@@ -447,6 +447,8 @@ def multi_recovery_fixed_n_trials(estimation, seed_params,
     p_results = {}
     for p_seed in p_seeds:
         d_results = {}
+        if equal_seeds:
+            d_seeds = [p_seed]
         for d_seed in d_seeds:
             kw_seed = copy.deepcopy(kw_dict)
             kw_seed['seed_params'] = p_seed

@@ -34,7 +34,7 @@ PARAM_NAMES = {'a': 'a',
                'sv': 'sv'}
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
-                    estimators=None, p_outliers=(0,), view=None, depends_on = None, n_conds=4, **kwargs):
+                    estimators=None, p_outliers=(0,), view=None, depends_on = None, n_conds=4, equal_seeds=True, **kwargs):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
@@ -157,7 +157,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     kw_dict_model['estimate'] = descr['params']
                     #run analysis
                     models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
-                                                         n_datasets=n_datasets, kw_dict=kw_dict_model, view=view)
+                                                         n_datasets=n_datasets, kw_dict=kw_dict_model, view=view, equal_seeds=equal_seeds)
 
                 factor3_results[cur_value] = models_results
             #end of (for cur_outliers in factor3_vals)
@@ -315,9 +315,9 @@ def select(stats, param_names, depends_on, subj=True):
         param_names = [param_names]
 
     if subj:
-        estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers', 'HDDMOutliers']
+        estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers', 'HDDMOutliers', 'HDDMGamma']
     else:
-        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj']
+        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj', 'HDDMGamma']
 
     extracted = {}
     index = stats.index
@@ -416,9 +416,9 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_trials:
-                estimators = ['HDDMGamma']
-                trial_exp = run_experiments(n_subjs=6, n_trials=[50,100], estimators=estimators, n_params=2, n_datasets=1,
-                                            include=include, view=view, depends_on = {'v':'condition'})
+                estimators = ['HDDMGamma', 'HDDMsharedVar']
+                trial_exp = run_experiments(n_subjs=12, n_trials=[30,40], n_params=2, n_datasets=1, equal_seeds=True,
+                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
                 subj_exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
                                            view=view, estimators=estimators, depends_on = {'v':'condition'})
@@ -437,17 +437,17 @@ if __name__ == "__main__":
 
         else:
             if run_trials:
-                trial_exp = run_experiments(n_subjs=12, n_trials=list(np.arange(10, 100, 10)) + [150,250], n_params=5, n_datasets=5,
+                trial_exp = run_experiments(n_subjs=12, n_trials=[30,40,50,75,100,150,250], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
-                subj_exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=10, n_datasets=1,
+                subj_exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=10, n_datasets=1, equal_seeds=True,
                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include,
+                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, equal_seeds=True,
                                                view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_outliers:
                 outliers_estimators = ['HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj', 'Quantiles_group']
-                outliers_exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include,
+                outliers_exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include, equal_seeds=True,
                                               estimators=outliers_estimators, depends_on = {'v':'condition'}, view=view, p_outliers=[0.06])
             if run_regress:
                 regress_estimators = ['SingleRegressor', 'HDDMRegressor']
@@ -500,7 +500,7 @@ if __name__ == "__main__":
 
     if result.analyze:
         if run_subjs or run_trials:
-            include = ['v','a']
+            # include = ['v','a']
             depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
             stat=np.median
 
