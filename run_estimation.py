@@ -452,7 +452,7 @@ if __name__ == "__main__":
             if run_regress:
                 regress_estimators = ['SingleRegressor', 'HDDMRegressor']
                 include = ('a','v','t','sv')
-                regress_exp = run_experiments(n_subjs=12, n_trials=np.arange(30,250,30), n_params=25, n_datasets=1, include=include,
+                regress_exp = run_experiments(n_subjs=12, n_trials=[30,40,50,75,100,150,250], n_params=25, n_datasets=1, include=include,
                                               estimators=regress_estimators, view=view, effects=[0.1, 0.3, 0.5])
 
         if run_trials:
