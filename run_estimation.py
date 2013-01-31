@@ -481,20 +481,26 @@ if __name__ == "__main__":
 
     if result.load:
         if run_trials:
-            trials_data = pd.load('trial'+str(include)+'.dat')
-            trials_data['estimate'] = np.float64(trials_data['estimate'])
+            data = pd.load('trial'+str(include)+'.dat')
         if run_subjs:
-            subj_data = pd.load('subj'+str(include)+'.dat')
-            subj_data['estimate'] = np.float64(subj_data['estimate'])
+            data = pd.load('subj'+str(include)+'.dat')
         if run_recovery:
-            recovery_data = pd.load('recovery'+str(include)+'.dat')
-            recovery_data['estimate'] = np.float64(recovery_data['estimate'])
+            data = pd.load('recovery'+str(include)+'.dat')
         if run_outliers:
-            outliers_data = pd.load('outliers'+str(include)+'.dat')
-            outliers_data['estimate'] = np.float64(outliers_data['estimate'])
+            data = pd.load('outliers'+str(include)+'.dat')
         if run_regress:
-            regress_data = pd.load('regress'+str(include)+'.dat')
-            regress_data['estimate'] = np.float64(regress_data['estimate'])
+            data = pd.load('regress'+str(include)+'.dat')
+        data['estimate'] = np.float64(data['estimate'])
+
+
+        bad = data[(data.estimate < 1e-5) & (data.estimate > 0) & (data['std'] < 1e-10)]
+        print "Found %d problematic experiments" % len(bad)
+        print len(data)
+        for i in bad.index:
+            print i
+            t_bad = data.select(lambda x: x[:-1] == i[:-1]).index
+            data = data.drop(labels=t_bad)
+        print len(data)
 
 
 
@@ -502,7 +508,7 @@ if __name__ == "__main__":
         if run_subjs or run_trials:
             # include = ['v','a']
             depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
-            stat=np.median
+            stat=np.mean
 
             #create figname
             figname = ''
@@ -512,20 +518,19 @@ if __name__ == "__main__":
                 figname += 'simple'
             figname += ('_' + stat.__name__)
 
-        if run_subjs:
+            if run_subjs:
+                plot_type = 'subjs'
+            else:
+                plot_type = 'trials'
 
-            plot_exp(select(subj_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_' + figname, savefig=savefig)
-            plot_exp(select(subj_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_' + figname, savefig=savefig)
-        if run_trials:
-            plot_exp(select(trials_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='trials', figname='single_' + figname, savefig=savefig)
-            plot_exp(select(trials_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='trials', figname='group_' + figname, savefig=savefig)
-
+            plot_exp(select(data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type=plot_type, figname='single_' + figname, savefig=savefig)
+            plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type=plot_type, figname='group_' + figname, savefig=savefig)
 
 
         if run_recovery:
 #            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
-            plot_recovery_exp(select(recovery_data, include, subj=True), tag='subj'+str(include))
-            plot_recovery_exp(select(recovery_data, include, subj=False), tag='group'+str(include), gridsize=50)
+            plot_recovery_exp(select(data, include, subj=True), tag='subj'+str(include))
+            plot_recovery_exp(select(data, include, subj=False), tag='group'+str(include), gridsize=50)
 
         if run_outliers:
             depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
@@ -539,8 +544,8 @@ if __name__ == "__main__":
                 figname += 'simple'
             figname += ('_' + stat.__name__)
 
-            plot_exp(select(outliers_data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_outliers_' + figname, savefig=savefig)
-            plot_exp(select(outliers_data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_outliers_' + figname, savefig=savefig)
+            plot_exp(select(data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_outliers_' + figname, savefig=savefig)
+            plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_outliers_' + figname, savefig=savefig)
 
 #            one_vs_others(select(outliers_data, include, depends_on={},subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=savefig)
 
