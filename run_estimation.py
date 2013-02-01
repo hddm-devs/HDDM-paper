@@ -243,6 +243,20 @@ if __name__ == "__main__":
     run_regress = result.regress
     savefig = not result.discardfig
 
+
+    if run_regress:
+        run_type = 'regress'
+    elif run_trials:
+        run_type = 'trials'
+    elif run_subjs:
+        run_type = 'subjs'
+    elif run_outliers:
+        run_type = 'outliers'
+    elif run_recovery:
+        run_type = 'recovery'
+
+
+
     if result.all:
         run_trials, run_subjs, run_recovery = True, True, True
 
@@ -263,74 +277,60 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_trials:
-                estimators = ['SingleMAP', 'HDDMsharedVar']
-                trial_exp = run_experiments(n_subjs=12, n_trials=[30,40], n_params=2, n_datasets=1, equal_seeds=True,
+                estimators = ['SingleMAP', 'Quantiles_subj']
+                exp = run_experiments(n_subjs=12, n_trials=[5000], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
-                subj_exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
+                exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
                                            view=view, estimators=estimators, depends_on = {'v':'condition'})
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1,
+                exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1,
                                                include=include, view=view, depends_on = {'v':'condition'})
             if run_outliers:
                 outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj','HDDMOutliers']
-                outliers_exp = run_experiments(n_subjs=[4], n_trials=(100), n_params=2, n_datasets=1, include=include,
+                exp = run_experiments(n_subjs=[4], n_trials=(100), n_params=2, n_datasets=1, include=include,
                                               estimators=outliers_estimators, view=view, p_outliers=[0.06])
             if run_regress:
                 regress_estimators = ['SingleRegressor', 'HDDMRegressor']
                 include = ('a','v','t','sv')
-                regress_exp = run_experiments(n_subjs=10, n_trials=30, n_params=1, n_datasets=1, include=include,
+                exp = run_experiments(n_subjs=10, n_trials=30, n_params=1, n_datasets=1, include=include,
                                               estimators=regress_estimators, view=view, effects=[0.1, 0.3])
 
         else:
             if run_trials:
-                trial_exp = run_experiments(n_subjs=12, n_trials=[30,40,50,75,100,150,250], n_params=25, n_datasets=1, equal_seeds=True,
+                exp = run_experiments(n_subjs=12, n_trials=[30,40,50,75,100,150,250], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
-                subj_exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=10, n_datasets=1, equal_seeds=True,
+                exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=10, n_datasets=1, equal_seeds=True,
                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_recovery:
-                recovery_exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, equal_seeds=True,
+                exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, equal_seeds=True,
                                                view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_outliers:
                 outliers_estimators = ['HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj', 'Quantiles_group']
-                outliers_exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include, equal_seeds=True,
+                exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include, equal_seeds=True,
                                               estimators=outliers_estimators, depends_on = {'v':'condition'}, view=view, p_outliers=[0.06])
             if run_regress:
                 regress_estimators = ['SingleRegressor', 'HDDMRegressor']
                 include = ('a','v','t','sv')
-                regress_exp = run_experiments(n_subjs=12, n_trials=[30,40,50,75,100,150,250], n_params=25, n_datasets=1, include=include,
+                exp = run_experiments(n_subjs=12, n_trials=[30,40,50,75,100,150,250], n_params=25, n_datasets=1, include=include,
                                               estimators=regress_estimators, view=view, effects=[0.1, 0.3, 0.5])
 
-        if run_trials:
-            trials_data = merge(trial_exp)
-            trials_data = est.add_group_stat_to_SingleOptimation(trials_data, np.mean)
-            trials_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(trials_data)
-            trials_data.save('trial'+str(include)+'.dat')
-        if run_subjs:
-            subj_data = merge(subj_exp)
-            subj_data = est.add_group_stat_to_SingleOptimation(subj_data, np.mean)
-            subj_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(subj_data)
-            subj_data.save('subj'+str(include)+'.dat')
-        if run_recovery:
-            recovery_data = merge(recovery_exp)
-            recovery_data = est.add_group_stat_to_SingleOptimation(recovery_data, np.mean)
-            recovery_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(recovery_data)
-            recovery_data.save('recovery'+str(include)+'.dat')
-        if run_outliers:
-            outliers_data = merge(outliers_exp)
-            outliers_data = est.add_group_stat_to_SingleOptimation(outliers_data, np.mean)
-            outliers_data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(outliers_data)
-            outliers_data.save('outliers'+str(include)+'.dat')
-        if run_regress:
-            regress_data = merge(regress_exp)
-            regress_data.save('regress'+str(include)+'.dat')
+        data = merge(exp)
+        if not run_regress:
+            data = est.add_group_stat_to_SingleOptimation(data, np.mean)
+            data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(data)
+        if result.debug:
+            fname = run_type + debug + '.dat'
+        else:
+            fname = run_type + str(include) + '.dat'
+        data.save(fname)
 
     if result.load:
         if run_trials:
-            data = pd.load('trial'+str(include)+'.dat')
+            data = pd.load('trials'+str(include)+'.dat')
         if run_subjs:
-            data = pd.load('subj'+str(include)+'.dat')
+            data = pd.load('subjs'+str(include)+'.dat')
         if run_recovery:
             data = pd.load('recovery'+str(include)+'.dat')
         if run_outliers:
