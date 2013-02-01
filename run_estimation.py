@@ -5,12 +5,11 @@ import argparse
 import sys
 import kabuki
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import Grid
-
+import plots_utils as utils
 import numpy as np
 import pandas as pd
 
+from plots_utils import select
 from IPython import parallel
 from IPython.parallel.client.asyncresult import AsyncResult
 import estimate as est
@@ -171,123 +170,6 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     return n_subjs_results
 
 
-def plot_exp(data, stat, plot_type, figname, savefig):
-    if plot_type == 'subjs':
-        level_name = 'n_subjs'
-        xlabel = 'subjs'
-    elif plot_type == 'trials':
-        level_name = 'n_trials'
-        xlabel = 'trials'
-    else:
-        raise ValueError('unknown plot_type')
-    grouped = data.Err.dropna().groupby(level=(level_name, 'estimation', 'knode')).agg((stat, np.std))
-    n_params = len(grouped.groupby(level=('knode',)).groups.keys())
-
-    fig = plt.figure(figsize=(8, n_params*3))
-    grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False,
-                label_mode='L', share_x=True, share_y=False, axes_pad=.25)
-
-    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('knode',))):
-        ax = grid[i]
-        ax.set_ylabel(param_name)
-#        ax.set_ylabel(PARAM_NAMES[param_name])
-#        ax.set_xlim(2, 30)
-#        ax.set_yscale('log')
-        for est_name, est_data in param_data.groupby(level=['estimation']):
-            ax.errorbar(est_data.index.get_level_values(level_name),
-                        est_data[stat.__name__], label=est_name, lw=2.,
-                        marker='o')
-
-    ax.set_xlabel(xlabel)
-    plt.legend(loc=0)
-    title = '%s_exp_%s'%(plot_type, figname)
-    plt.suptitle(title)
-
-    if savefig:
-        plt.savefig(title + '.png')
-        plt.savefig(title + '.svg')
-
-
-def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=True):
-
-    data = data[['truth', 'estimate','Err']].dropna()
-    ni = len(data.dropna().groupby(level=['estimation']))
-    nj = len(data.dropna().groupby(level=('knode',)))
-
-    data = data[(data['estimate'] > abs_min) & (data['estimate'] < abs_max)]
-    data_params = data.groupby(level=('knode',))[['truth', 'estimate']]
-    mini = data_params.min().min(axis=1)
-    maxi = data_params.max().max(axis=1)
-    print mini
-    print maxi
-
-    fig = plt.figure(figsize=(9, 3*nj))
-    grid = Grid(fig, 111, nrows_ncols=(nj, ni), add_all=True, share_all=False, label_mode='L', share_x=False, share_y=False)
-    for i, (est_name, est_data) in enumerate(data.dropna().groupby(level=['estimation'])):
-        nj = len(est_data.groupby(level=('knode',)))
-        for j, (param_name, param_data) in enumerate(est_data.groupby(level=('knode',))):
-            ax = grid.axes_column[i][j] #plt.subplot2grid((nj, ni), (j, i))
-            # if i == 0:
-            #     ax.set_title(est_name)
-            #ax.plot(param_data.truth, param_data.estimate, 'x', label=est_name)
-            minimaxi = (mini[param_name], maxi[param_name])
-            ax.set_xlim(minimaxi)
-            ax.set_ylim(minimaxi)
-            ax.set_xlabel(est_name)
-            ax.set_ylabel(PARAM_NAMES[param_name])
-            kwargs = {'gridsize': gridsize, 'bins': 'log', 'extent': (mini[param_name], maxi[param_name], mini[param_name], maxi[param_name])}
-            ax.hexbin(param_data.truth, param_data.estimate, label='post pred lb', **kwargs)
-#            kabuki.debug_here()
-
-#            plt.legend()
-
-    if save:
-        plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
-        plt.savefig('recovery_exp_%s.svg'%(tag))
-
-def one_vs_others(data, main_estimator, tag='', gridsize=100, save=True):
-
-    data = data[['truth', 'estimate','Err']].dropna()
-    data_params = data.groupby(level=('knode',))[['truth', 'estimate']]
-    mini = data_params.min().min(axis=1)
-    maxi = data_params.max().max(axis=1)
-    print mini
-    print maxi
-
-    grouped_data = data.groupby(level=['estimation'])
-    main_data = grouped_data.get_group(main_estimator)
-    ni = len(grouped_data) - 1
-    nj = len(data.groupby(level=('knode',)))
-    fig = plt.figure()#figsize=(9, 3*nj))
-    counter = 0
-    for j, (param_name, param_data) in enumerate(data.groupby(level=('knode',))):
-        for i, (est_name, est_data) in enumerate(param_data.groupby(level=('estimation',))):
-            if est_name == main_estimator:
-                continue
-            counter = counter + 1
-            ax = fig.add_subplot(nj, ni, counter)
-            minimaxi = (mini[param_name], maxi[param_name])
-#            ax.set_xlim(minimaxi)
-#            ax.set_ylim(minimaxi)
-            ax.set_xlabel(est_name)
-            ax.set_ylabel(PARAM_NAMES[param_name])
-            kwargs = {'gridsize': gridsize, 'bins': 'log'}
-#                      'extent': (mini[param_name], maxi[param_name], mini[param_name], maxi[param_name])}
-#            ax.hexbin(np.abs(est_data.relErr), main_data.ix[param_name].relErr, **kwargs)
-#            ax.scatter(np.abs(est_data.relErr), np.abs(main_data.ix[param_name].relErr))
-            ax.scatter(est_data.Err, main_data.ix[param_name].Err)
-            lb = min(ax.get_xlim()[0], ax.get_ylim()[0])
-            ub = max(ax.get_xlim()[1], ax.get_ylim()[1])
-            ax.plot([lb, ub], [lb, ub])
-#            ax.axis('equal')
-            ax.plot()
-
-
-    if save:
-        plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
-        plt.savefig('recovery_exp_%s.svg'%(tag))
-
-
 def concat_dicts(d, names=()):
     name = names.pop(0) if len(names) != 0 else None
 
@@ -308,41 +190,6 @@ def concat_dicts(d, names=()):
 def merge(data):
     results = concat_dicts(data, names=['n_subjs', 'n_trials', 'p_outliers', 'estimation', 'param_seed', 'data_seed', 'param'])
     return results
-
-def select(stats, param_names, depends_on, subj=True):
-
-    if isinstance(param_names, str):
-        param_names = [param_names]
-
-    if subj:
-        estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj', 'SingleMAPoutliers', 'HDDMOutliers', 'HDDMGamma']
-    else:
-        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj', 'HDDMGamma']
-
-    extracted = {}
-    index = stats.index
-    for name in param_names:
-        for cond in depends_on.get(name, [None]):
-            if (cond is not None):
-                fullname = "%s(%s)" % (name, cond)
-            else:
-                fullname = name
-
-            selected = []
-            for ix in index:
-                if subj:
-                    if ix[-4] in estimators and ix[-1].startswith(name) and 'subj' in ix[-1]:
-                        if (cond is None) or (('(%s)' % cond) in ix[-1]):
-                            selected.append(ix)
-                else:
-                    if ix[-4] in estimators and ((ix[-1] == name) or (ix[-1].startswith(name + '('))):
-                        if (cond is None) or (('(%s)' % cond) in ix[-1]):
-                            selected.append(ix)
-
-            extracted[fullname] = stats.ix[selected]
-
-    return pd.concat(extracted, names=['knode'])
-
 
 
 if __name__ == "__main__":
@@ -416,7 +263,7 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_trials:
-                estimators = ['HDDMGamma', 'HDDMsharedVar']
+                estimators = ['SingleMAP', 'HDDMsharedVar']
                 trial_exp = run_experiments(n_subjs=12, n_trials=[30,40], n_params=2, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
@@ -489,7 +336,11 @@ if __name__ == "__main__":
         if run_outliers:
             data = pd.load('outliers'+str(include)+'.dat')
         if run_regress:
+            include = ('a', 'v', 't', 'sv')
             data = pd.load('regress'+str(include)+'.dat')
+            data['estimate'] = np.float64(data['estimate'])
+            data = est.add_group_stat_to_SingleRegressor(data)
+
         data['estimate'] = np.float64(data['estimate'])
 
 
@@ -508,7 +359,7 @@ if __name__ == "__main__":
         if run_subjs or run_trials:
             # include = ['v','a']
             depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
-            stat=np.mean
+            stat=np.median
 
             #create figname
             figname = ''
@@ -523,14 +374,17 @@ if __name__ == "__main__":
             else:
                 plot_type = 'trials'
 
-            plot_exp(select(data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type=plot_type, figname='single_' + figname, savefig=savefig)
-            plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type=plot_type, figname='group_' + figname, savefig=savefig)
+            utils.plot_exp(select(data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type=plot_type, figname='single_' + figname, savefig=savefig)
+            utils.plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type=plot_type, figname='group_' + figname, savefig=savefig)
 
+        if run_regress:
+            utils.likelihood_of_detection(data, subj=False, savefig=savefig)
+            utils.likelihood_of_detection(data, subj=True, savefig=savefig)
 
         if run_recovery:
 #            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
-            plot_recovery_exp(select(data, include, subj=True), tag='subj'+str(include))
-            plot_recovery_exp(select(data, include, subj=False), tag='group'+str(include), gridsize=50)
+            utils.plot_recovery_exp(select(data, include, subj=True), tag='subj'+str(include))
+            utils.plot_recovery_exp(select(data, include, subj=False), tag='group'+str(include), gridsize=50)
 
         if run_outliers:
             depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
@@ -544,8 +398,8 @@ if __name__ == "__main__":
                 figname += 'simple'
             figname += ('_' + stat.__name__)
 
-            plot_exp(select(data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_outliers_' + figname, savefig=savefig)
-            plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_outliers_' + figname, savefig=savefig)
+            utils.plot_exp(select(data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type='subjs', figname='single_outliers_' + figname, savefig=savefig)
+            utils.plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type='subjs', figname='group_outliers_' + figname, savefig=savefig)
 
 #            one_vs_others(select(outliers_data, include, depends_on={},subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=savefig)
 

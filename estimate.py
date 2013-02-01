@@ -7,6 +7,7 @@ import os.path
 import time
 import glob
 import generate_regression as genreg
+import scipy
 
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
@@ -638,3 +639,26 @@ def add_group_stat_to_SingleOptimation(data, stat):
     data['relErr'] = np.abs(np.asarray((data['Err'] / data['truth']), dtype=np.float32))
 
     return data
+
+
+def add_group_stat_to_SingleRegressor(data):
+
+    data = data.copy()
+    sdata = data.select(lambda x:(x[3] == 'SingleRegressor') and ('subj' in x[-1]))
+    groups = sdata.groupby(lambda x:tuple(list(x[:6])))
+    means = np.zeros(len(groups))
+    stds = np.zeros(len(groups))
+    for (t_idx, t_data) in groups:
+        slopes = t_data.select(lambda x:x[-1].startswith('v_slope_subj'))[['estimate', 'std']]        
+        pooled_var = 1. / sum(1. / (slopes['std']**2))
+        pooled_mean = sum(slopes['estimate'] / (slopes['std']**2)) * pooled_var
+        mass_under = scipy.stats.norm.ppf(0.025, pooled_mean, np.sqrt(pooled_var))
+
+        slope_idx = tuple(list(t_idx) + ['v_slope'])
+        data.set_value(slope_idx, col='estimate', value=pooled_mean)
+        data.set_value(slope_idx, col='std', value=np.sqrt(pooled_var))
+        data.set_value(slope_idx, col='2.5q', value=mass_under)
+
+
+    return data
+
