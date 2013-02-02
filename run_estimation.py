@@ -321,7 +321,7 @@ if __name__ == "__main__":
             data = est.add_group_stat_to_SingleOptimation(data, np.mean)
             data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(data)
         if result.debug:
-            fname = run_type + debug + '.dat'
+            fname = run_type + 'debug' + '.dat'
         else:
             fname = run_type + str(include) + '.dat'
         data.save(fname)
