@@ -255,7 +255,10 @@ if __name__ == "__main__":
     elif run_recovery:
         run_type = 'recovery'
 
-
+    if result.debug:
+        fname = run_type + 'debug' + '.dat'
+    else:
+        fname = run_type + str(include) + '.dat'
 
     if result.all:
         run_trials, run_subjs, run_recovery = True, True, True
@@ -320,38 +323,27 @@ if __name__ == "__main__":
         if not run_regress:
             data = est.add_group_stat_to_SingleOptimation(data, np.mean)
             data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(data)
-        if result.debug:
-            fname = run_type + 'debug' + '.dat'
-        else:
-            fname = run_type + str(include) + '.dat'
         data.save(fname)
 
     if result.load:
-        if run_trials:
-            data = pd.load('trials'+str(include)+'.dat')
-        if run_subjs:
-            data = pd.load('subjs'+str(include)+'.dat')
-        if run_recovery:
-            data = pd.load('recovery'+str(include)+'.dat')
-        if run_outliers:
-            data = pd.load('outliers'+str(include)+'.dat')
+        data = pd.load(fname)
         if run_regress:
-            include = ('a', 'v', 't', 'sv')
-            data = pd.load('regress'+str(include)+'.dat')
             data['estimate'] = np.float64(data['estimate'])
             data = est.add_group_stat_to_SingleRegressor(data)
 
         data['estimate'] = np.float64(data['estimate'])
 
-
-        bad = data[(data.estimate < 1e-5) & (data.estimate > 0) & (data['std'] < 1e-10)]
-        print "Found %d problematic experiments" % len(bad)
-        print len(data)
-        for i in bad.index:
-            print i
-            t_bad = data.select(lambda x: x[:-1] == i[:-1]).index
-            data = data.drop(labels=t_bad)
-        print len(data)
+        try:
+            bad = data[(data.estimate < 1e-5) & (data.estimate > 0) & (data['std'] < 1e-10)]
+            print "Found %d problematic experiments" % len(bad)
+            print len(data)
+            for i in bad.index:
+                print i
+                t_bad = data.select(lambda x: x[:-1] == i[:-1]).index
+                data = data.drop(labels=t_bad)
+            print len(data)
+        except KeyError:
+            print "cound not run problems detection"
 
 
 
