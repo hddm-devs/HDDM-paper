@@ -280,8 +280,7 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_trials:
-                estimators = ['SingleMAP', 'Quantiles_subj']
-                exp = run_experiments(n_subjs=12, n_trials=[5000], n_params=25, n_datasets=1, equal_seeds=True,
+                exp = run_experiments(n_subjs=12, n_trials=[10,20], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
                 exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
@@ -301,10 +300,10 @@ if __name__ == "__main__":
 
         else:
             if run_trials:
-                exp = run_experiments(n_subjs=12, n_trials=[30,40,50,75,100,150,250], n_params=25, n_datasets=1, equal_seeds=True,
+                exp = run_experiments(n_subjs=12, n_trials=[10,20,30,40,50,75,100,150,250], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
-                exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=10, n_datasets=1, equal_seeds=True,
+                exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=25, n_datasets=1, equal_seeds=True,
                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_recovery:
                 exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, equal_seeds=True,
