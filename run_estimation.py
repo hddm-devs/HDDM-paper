@@ -282,7 +282,7 @@ if __name__ == "__main__":
             if run_trials:
                 exp = run_experiments(n_subjs=12, n_trials=[10,20], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
-            if run_subjs:
+            if run_subjs:                
                 exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
                                            view=view, estimators=estimators, depends_on = {'v':'condition'})
             if run_recovery:
@@ -303,6 +303,7 @@ if __name__ == "__main__":
                 exp = run_experiments(n_subjs=12, n_trials=[10,20,30,40,50,75,100,150,250], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_subjs:
+                estimators.remove('HDDMsharedVar')
                 exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=25, n_datasets=1, equal_seeds=True,
                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
             if run_recovery:
@@ -369,8 +370,12 @@ if __name__ == "__main__":
             utils.plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type=plot_type, figname='group_' + figname, savefig=savefig)
 
         if run_regress:
+            stat=np.median
             utils.likelihood_of_detection(data, subj=False, savefig=savefig)
             utils.likelihood_of_detection(data, subj=True, savefig=savefig)
+            for i in [0.1, 0.3, 0.5]:
+                utils.plot_exp(select(data, ['v_slope'], depends_on={}, subj=True).xs(i, level='p_outliers') , stat=stat, plot_type='regress', figname='single', savefig=savefig)
+                utils.plot_exp(select(data, ['v_slope'], depends_on={}, subj=False).xs(i, level='p_outliers'), stat=stat, plot_type='regress', figname='group', savefig=savefig)
 
         if run_recovery:
 #            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
