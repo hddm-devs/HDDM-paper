@@ -92,7 +92,7 @@ class EstimationHDDMRegressor(EstimationHDDMBase):
         super(EstimationHDDMRegressor, self).__init__(data, **kwargs)
 
     def init_model(self, data):
-            self.model = hddm.models.HDDMRegressor(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
+            self.model = hddm.models.HDDMRegressor(data, group_only_nodes = ['sz','st','sv', 'v_slope'], **self.init_kwargs)
 
 #single HDDMRegressors Estimation
 class SingleRegressor(Estimation):
