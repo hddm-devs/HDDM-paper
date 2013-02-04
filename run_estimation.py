@@ -60,7 +60,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     if 'sv' in include:
         subj_noise['sv'] = .05
     if is_regress:
-        subj_noise.update({'v_slope':0.2, 'v_inter':0.2})
+        subj_noise.update({'v_inter':0.1})
 
     #kwargs for initialize estimation
     init = {'include': include, 'depends_on': depends_on}
@@ -112,13 +112,17 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
             factor3_results = {}
             for cur_value in factor3_vals:
 
+                #if regress experiments then we add an effect
+                if is_regress:
+                    params['effect'] = cur_value
+
                 #create kw_dict
                 kw_dict = {'params': params, 'init': init, 'estimate': estimate}
 
                 #if this is not a full model we should add exclude params
                 if (set(['sv','st','sz','z','a','v','t']) != set(include)) or is_regress:
                     if is_regress:
-                        exclude = set(['sv','st','sz','z', 'reg_outcomes']) - set(include)
+                        exclude = set(['sv','st','sz','z', 'reg_outcomes'])
                     else:
                         exclude = set(['sv','st','sz','z']) - set(include)
                 else:
@@ -133,7 +137,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     kw_dict['init'] = init
 
                     reg_data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials,
-                                'effect': cur_value, 'exclude_params': exclude}
+                                'exclude_params': exclude}
                     kw_dict['reg_data'] = reg_data
 
                 else:
@@ -282,7 +286,7 @@ if __name__ == "__main__":
             if run_trials:
                 exp = run_experiments(n_subjs=12, n_trials=[10,20], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
-            if run_subjs:                
+            if run_subjs:
                 exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
                                            view=view, estimators=estimators, depends_on = {'v':'condition'})
             if run_recovery:
@@ -294,7 +298,7 @@ if __name__ == "__main__":
                                               estimators=outliers_estimators, view=view, p_outliers=[0.06])
             if run_regress:
                 regress_estimators = ['SingleRegressor', 'HDDMRegressor']
-                include = ('a','v','t','sv')
+                include = ['v','t','a','sv']
                 exp = run_experiments(n_subjs=10, n_trials=30, n_params=1, n_datasets=1, include=include,
                                               estimators=regress_estimators, view=view, effects=[0.1, 0.3])
 

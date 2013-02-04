@@ -5,7 +5,7 @@ import scipy
 import pandas as pd
 from copy import deepcopy
 
-def gen_regression_data(params, effect, subj_noise, share_noise = ('a','v','t','st','sz','sv','z', 'v_slope', 'v_inter'), size=50,
+def gen_regression_data(params, subj_noise, share_noise = ('a','v','t','st','sz','sv','z', 'v_slope', 'v_inter'), size=50,
                         subjs=1, exclude_params=(), **kwargs):
 
     """Generate simulated RTs with random parameters.
@@ -48,10 +48,10 @@ def gen_regression_data(params, effect, subj_noise, share_noise = ('a','v','t','
       #generate v
       wfpt_params = deepcopy(subj_params)
       wfpt_params.pop('v_inter')
-      wfpt_params.pop('v_slope')
+      effect = wfpt_params.pop('v_slope')
       x1 = np.random.randn(size);
       x2 = np.random.randn(size);
-      wfpt_params['v'] = (effect*x1 + np.sqrt(1-effect**2)*x2)/effect*subj_params['v_slope'] + subj_params['v_inter'];
+      wfpt_params['v'] = (effect*x1 + np.sqrt(1-effect**2)*x2) + subj_params['v_inter'];
 
       #generate data
       subj_data, _ = kabuki.generate.gen_rand_data(hddm.models.hddm_regression.wfpt_reg_like, wfpt_params,
@@ -73,10 +73,10 @@ def gen_regression_data(params, effect, subj_noise, share_noise = ('a','v','t','
     return data, group_params
 
 
-def gen_reg_params(**kwargs):
+def gen_reg_params(effect, **kwargs):
 
   params = hddm.generate.gen_rand_params(**kwargs)
-  params['v_slope'] = 1
+  params['v_slope'] = effect
   params['v_inter'] = 1
   del params['v']
 
