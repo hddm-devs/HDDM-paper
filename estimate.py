@@ -659,6 +659,9 @@ def add_group_stat_to_SingleRegressor(data):
         data.set_value(slope_idx, col='std', value=np.sqrt(pooled_var))
         data.set_value(slope_idx, col='2.5q', value=mass_under)
 
+        true_value = data.get_value(slope_idx, col='truth')
+        data.set_value(slope_idx, col='Err', value=abs(true_value - pooled_mean))
+
 
     return data
 

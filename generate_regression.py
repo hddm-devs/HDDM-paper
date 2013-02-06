@@ -78,6 +78,7 @@ def gen_reg_params(effect, **kwargs):
   params = hddm.generate.gen_rand_params(**kwargs)
   params['v_slope'] = effect
   params['v_inter'] = 1
+  params['sv'] = 0
   del params['v']
 
   return params
