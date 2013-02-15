@@ -1,3 +1,5 @@
+import hashlib
+import cPickle
 import hddm
 import numpy as np
 import pandas as pd
@@ -270,22 +272,12 @@ def make_hash(o):
     only other hashable types (including any lists, tuples, sets, and
     dictionaries).
     """
-
-    if isinstance(o, set) or isinstance(o, tuple) or isinstance(o, list):
-        return tuple([make_hash(e) for e in o])
-
-    elif isinstance(o, type(make_hash)):
-        return 1234567890
-
-    elif not isinstance(o, dict):
-        return hash(o)
-
-    #if o is dict
-    new_o = copy.deepcopy(o)
-    for k, v in new_o.items():
-        new_o[k] = make_hash(v)
-
-    return hash(tuple(frozenset(new_o.items())))
+    try:
+        return hashlib.md5(cPickle.dumps(o)).hexdigest()
+    except TypeError:
+        oo = copy.deepcopy(o)
+        oo['init']['regressor']['func'] = 123
+        return hashlib.md5(cPickle.dumps(oo)).hexdigest()
 
 def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
     """run analysis for a single Estimation.
