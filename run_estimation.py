@@ -33,21 +33,14 @@ PARAM_NAMES = {'a': 'a',
                'sv': 'sv'}
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
-                    estimators=None, p_outliers=(0,), view=None, depends_on = None, n_conds=4, equal_seeds=True, **kwargs):
+                    estimators=None, view=None, depends_on = None, equal_seeds=True, run_type=None,
+                    factor3_vals = None):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
         n_trials = (n_trials,)
     if depends_on is None:
         depends_on = {}
-
-    effects = kwargs.get('effects', None)
-    factor3_vals = p_outliers;
-    if effects is None:
-        is_regress = False
-    else:
-        is_regress = True
-        factor3_vals = effects
 
     #kwards for gen_rand_data
     subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
@@ -59,7 +52,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         subj_noise['st'] = .05
     if 'sv' in include:
         subj_noise['sv'] = .05
-    if is_regress:
+    if run_type == 'regress':
         subj_noise.update({'v_inter':0.1})
 
     #kwargs for initialize estimation
@@ -69,36 +62,44 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     estimate = {'runs': 3}
 
     #include params
-    params = {'include': include, 'n_conds': n_conds}
+    n_conds = 4
+    params = {'include': include}
     recover = est.multi_recovery_fixed_n_trials
 
     estimator_dict = OrderedDict()
+    hddm_sampling_params = {'samples': 1500, 'burn': 500, 'map': False}
     if 'SingleMAP' in estimators:
         estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 50}}
     if 'SingleMAPoutliers' in estimators:
         estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 50}}
 
     if 'HDDMsharedVar' in estimators:
-        estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+        estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': hddm_sampling_params}
 
     if 'HDDMGamma' in estimators:
-        estimator_dict['HDDMGamma'] = {'estimator': est.EstimationHDDMGamma, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+        estimator_dict['HDDMGamma'] = {'estimator': est.EstimationHDDMGamma, 'params': hddm_sampling_params}
+
+    if 'noninformHDDM' in estimators:
+        estimator_dict['noninformHDDM'] = {'estimator': est.EstimationNoninformHDDM, 'params': hddm_sampling_params}
 
     if 'HDDMOutliers' in estimators:
-        estimator_dict['HDDMOutliers'] = {'estimator': est.EstimationHDDMOutliers, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+        estimator_dict['HDDMOutliers'] = {'estimator': est.EstimationHDDMOutliers, 'params': hddm_sampling_params}
 
     if 'HDDMRegressor' in estimators:
-        estimator_dict['HDDMRegressor'] = {'estimator': est.EstimationHDDMRegressor, 'params': {'samples': 35000, 'burn': 30000, 'map': False}}
+        estimator_dict['HDDMRegressor'] = {'estimator': est.EstimationHDDMRegressor, 'params': hddm_sampling_params}
 
     if 'SingleRegressor' in estimators:
-        estimator_dict['SingleRegressor'] = {'estimator': est.SingleRegressor, 'params': {'samples': 35000, 'burn': 30000, 'map': False}}
+        estimator_dict['SingleRegressor'] = {'estimator': est.SingleRegressor, 'params': hddm_sampling_params}
 
     if 'HDDMTruncated' in estimators:
-        estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': {'samples': 35000, 'burn': 30000, 'map': True}}
+        estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': hddm_sampling_params}
 
     if 'Quantiles_subj' in estimators:
         estimator_dict['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
+    if 'ML' in estimators:
+        estimator_dict['ML'] = {'estimator': est.EstimationSingleOptimization,
+                                           'params': {'method': 'ML', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
     if 'Quantiles_group' in estimators:
         estimator_dict['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization,
                                             'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
@@ -113,15 +114,18 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
             for cur_value in factor3_vals:
 
                 #if regress experiments then we add an effect
-                if is_regress:
+                if run_type == 'regress':
                     params['effect'] = cur_value
 
+                if run_type == 'priors':
+                    n_conds = cur_value
+
                 #create kw_dict
-                kw_dict = {'params': params, 'init': init, 'estimate': estimate}
+                kw_dict = {'params': params, 'init': init, 'estimate': estimate, 'n_conds': n_conds}
 
                 #if this is not a full model we should add exclude params
-                if (set(['sv','st','sz','z','a','v','t']) != set(include)) or is_regress:
-                    if is_regress:
+                if (set(['sv','st','sz','z','a','v','t']) != set(include)) or run_type == 'regress':
+                    if run_type == 'regress':
                         exclude = set(['sv','st','sz','z', 'reg_outcomes'])
                     else:
                         exclude = set(['sv','st','sz','z']) - set(include)
@@ -130,7 +134,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
 
                 #create kw_dict['data']
-                if is_regress:
+                if run_type == 'regress':
                     reg_func = lambda args, cols: args[0]*cols[:,0]+args[1]
                     reg = {'func': reg_func, 'args':['v_slope','v_inter'], 'covariates': 'cov', 'outcome':'v'}
                     init['regressor'] = reg
@@ -141,7 +145,10 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     kw_dict['reg_data'] = reg_data
 
                 else:
-                    cur_outliers = cur_value
+                    if run_type == 'priors':
+                        cur_outliers = 0
+                    elif run_type == 'outliers':
+                        cur_outliers = cur_value
                     n_outliers = int(cur_trials * cur_outliers)
                     n_fast_outliers = (n_outliers // 2)
                     n_slow_outliers = n_outliers - n_fast_outliers
@@ -222,6 +229,8 @@ if __name__ == "__main__":
                         help='Run only group estimations.')
     parser.add_argument('--regress', action='store_true', dest='regress', default=False,
                         help='Run only regression estimations.')
+    parser.add_argument('--priors', action='store_true', dest='priors', default=False,
+                        help='Run only priors experiment.')
     parser.add_argument('-st', action='store_true', dest='st', default=False)
     parser.add_argument('-sv', action='store_true', dest='sv', default=False)
     parser.add_argument('-sz', action='store_true', dest='sz', default=False)
@@ -244,6 +253,7 @@ if __name__ == "__main__":
         include.append('z')
 
     run_trials, run_subjs, run_recovery, run_outliers = result.trials, result.subjs, result.recovery, result.outliers
+    run_priors = result.priors
     run_regress = result.regress
     savefig = not result.discardfig
 
@@ -258,14 +268,15 @@ if __name__ == "__main__":
         run_type = 'outliers'
     elif run_recovery:
         run_type = 'recovery'
+    elif run_priors:
+        run_type = 'priors'
+    else:
+        raise ValueError("run_type was not found")
 
     if result.debug:
-        fname = run_type + 'debug' + '.dat'
+        fname = run_type + '_debug' + '.dat'
     else:
         fname = run_type + str(include) + '.dat'
-
-    if result.all:
-        run_trials, run_subjs, run_recovery = True, True, True
 
     if result.parallel:
         c = parallel.Client(profile=result.profile)
@@ -283,24 +294,35 @@ if __name__ == "__main__":
                 estimators.remove('HDDMTruncated')
 
         if result.debug:
+            if run_priors:
+                include = ['st', 'sv', 'sz', 'z']
+                estimators=['HDDMGamma', 'noninformHDDM', 'ML', 'Quantiles_subj']
+                exp = run_experiments(n_subjs=1, n_trials=[10,30], n_params=2, n_datasets=1, equal_seeds=True,
+                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
+                                            factor3_vals=[1,2,3], run_type=run_type)
             if run_trials:
                 exp = run_experiments(n_subjs=12, n_trials=[10,20], n_params=25, n_datasets=1, equal_seeds=True,
-                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators)
+                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
+                                            run_type=run_type)
             if run_subjs:
                 exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
-                                           view=view, estimators=estimators, depends_on = {'v':'condition'})
+                                           view=view, estimators=estimators, depends_on = {'v':'condition'},
+                                           run_type=run_type)
             if run_recovery:
                 exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1,
-                                               include=include, view=view, depends_on = {'v':'condition'})
+                                               include=include, view=view, depends_on = {'v':'condition'},
+                                               run_type=run_type)
             if run_outliers:
                 outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj','HDDMOutliers']
                 exp = run_experiments(n_subjs=[4], n_trials=(100), n_params=2, n_datasets=1, include=include,
-                                              estimators=outliers_estimators, view=view, p_outliers=[0.06])
+                                              estimators=outliers_estimators, view=view, factor3_vals=[0.06],
+                                              run_type=run_type)
             if run_regress:
                 regress_estimators = ['SingleRegressor', 'HDDMRegressor']
                 include = ['v','t','a','sv']
                 exp = run_experiments(n_subjs=10, n_trials=30, n_params=1, n_datasets=1, include=include,
-                                              estimators=regress_estimators, view=view, effects=[0.1, 0.3])
+                                              estimators=regress_estimators, view=view, factor3_vals=[0.1, 0.3],
+                                              run_type=run_type)
 
         else:
             if run_trials:

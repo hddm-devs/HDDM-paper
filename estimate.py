@@ -85,6 +85,16 @@ class EstimationHDDMGamma(EstimationHDDMBase):
     def init_model(self, data):
             self.model = hddm.models.HDDMGamma(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
 
+#noniformative HDDM
+class EstimationNoninformHDDM(EstimationHDDMBase):
+
+    def __init__(self, data, **kwargs):
+        super(EstimationNoninformHDDM, self).__init__(data, **kwargs)
+
+    def init_model(self, data):
+            self.model = hddm.models.HDDMGamma(data, group_only_nodes = ['sz','st','sv'], informative=False, **self.init_kwargs)
+
+
 #HDDMRegressor Estimation
 class EstimationHDDMRegressor(EstimationHDDMBase):
 
@@ -140,42 +150,6 @@ class EstimationHDDMOutliers(EstimationHDDMsharedVar):
         kwargs['include'] += ['p_outlier']
         super(EstimationHDDMOutliers, self).__init__(data, **kwargs)
 
-
-#Single MLE Estimation
-class EstimationSingleMLE(Estimation):
-
-    def __init__(self, data, **kwargs):
-        super(self.__class__, self).__init__(data, **kwargs)
-
-        #create an HDDM model for each subject
-        data = hddm.utils.flip_errors(data)
-        self.grouped_data = data.groupby('subj_idx')
-        self.models = []
-        self.stats = {}
-
-
-    def estimate(self, include):
-        wiener_kw = {'err': 1e-4, 'nT':2, 'nZ':2,
-                         'use_adaptive':1, 'simps_err':1e-3}
-        wiener_kw.update(hddm.generate.gen_rand_params(include))
-
-        #define objective function
-        def mle_objective_func(values, include, wiener_kw):
-            wiener_kw.update(zip(include, values))
-            return -hddm.wfpt.wiener_like(**wiener_kw)
-
-        #estimate for each subject
-        for subj_idx, subj_data in self.grouped_data:
-            #estimate
-            wiener_kw['x'] = subj_data['rt'].values
-            values0 = np.array([wiener_kw[param] for param in include])
-            xopt = fmin_powell(mle_objective_func, values0, args=(include, wiener_kw))
-            #analyze
-            for i_param, param in enumerate(include):
-                self.stats[param + `subj_idx`] = xopt[i_param]
-
-    def get_stats(self):
-        return self.stats
 
 #Single MAP Estimation
 class EstimationSingleMAP(Estimation):
@@ -328,6 +302,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
     is_regress = kw_dict.has_key('reg_data')
 
     #generate params and data for regression experiments
+    n_conds = kw_dict['n_conds']
     if is_regress:
         np.random.seed(kw_dict['seed_params'])
         _ = kw_dict['params'].pop('n_conds', None)
@@ -336,7 +311,6 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
     #generate params and data for other experiments
     else:
         np.random.seed(kw_dict['seed_params'])
-        n_conds = kw_dict['params'].pop('n_conds', 4)
         cond_v =  (np.random.rand()*0.4 + 0.1) * 2**np.arange(n_conds)
         params, joined_params = hddm.generate.gen_rand_params(cond_dict={'v':cond_v}, **kw_dict['params'])
 
@@ -391,6 +365,13 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
         subj_noise = kw_dict['reg_data']['subj_noise']
     else:
         data, group_params = hddm.generate.gen_rand_data(params, generate_data=generate_data, **kw_dict['data'])
+        if kw_dict['data']['subjs'] == 1 and n_conds == 1:
+            group_params = {'c0': [group_params]}
+        elif n_conds == 1:
+            group_params = {'c0': group_params}
+        elif kw_dict['data']['subjs'] == 1:
+            for key, value in group_params.iteritems():
+                group_params[key] = [value]
         subj_noise = kw_dict['data']['subj_noise']
     group_params = put_all_params_in_a_single_dict(joined_params, group_params, subj_noise, kw_dict['init']['depends_on'])
 
@@ -649,7 +630,7 @@ def add_group_stat_to_SingleRegressor(data):
     means = np.zeros(len(groups))
     stds = np.zeros(len(groups))
     for (t_idx, t_data) in groups:
-        slopes = t_data.select(lambda x:x[-1].startswith('v_slope_subj'))[['estimate', 'std']]        
+        slopes = t_data.select(lambda x:x[-1].startswith('v_slope_subj'))[['estimate', 'std']]
         pooled_var = 1. / sum(1. / (slopes['std']**2))
         pooled_mean = sum(slopes['estimate'] / (slopes['std']**2)) * pooled_var
         mass_under = scipy.stats.norm.ppf(0.025, pooled_mean, np.sqrt(pooled_var))
