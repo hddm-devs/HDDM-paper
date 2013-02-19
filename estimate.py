@@ -220,11 +220,14 @@ class EstimationSingleOptimization(Estimation):
         for subj_idx, model in enumerate(self.models):
             values_tuple = [None] * len(model.get_stochastics())
             for (i_value, (node_name, node_row)) in enumerate(model.iter_stochastics()):
-                if '(' in node_name:
-                    knode_name, cond = node_name.split('(')
-                    name = knode_name + '_subj' + '(' + cond + '.' + str(subj_idx)
+                if len(self.models) == 1:
+                    name = node_name
                 else:
-                    name = node_name + '_subj.' + str(subj_idx)
+                    if '(' in node_name:
+                        knode_name, cond = node_name.split('(')
+                        name = knode_name + '_subj' + '(' + cond + '.' + str(subj_idx)
+                    else:
+                        name = node_name + '_subj.' + str(subj_idx)
 
                 values_tuple[i_value] = (name, float(node_row['node'].value))
             stats.update(dict(values_tuple))
@@ -251,6 +254,10 @@ class EstimationGroupOptimization(Estimation):
 
 def put_all_params_in_a_single_dict(joined_params, group_params, subj_noise, depends_on):
     p_dict = joined_params.copy()
+
+    #if there is only one subject then there is nothing to do
+    if len(group_params.values()[0]) == 1:
+        return p_dict
 
     #put subj params in p_dict
     for cond, cond_params in group_params.iteritems():
@@ -403,9 +410,7 @@ def combine_params_and_stats(params, stats):
         comb = pd.concat([params, stats], axis=1)
     else:
         comb = pd.concat([params, stats], axis=1, keys=['truth', 'estimate'])
-    comb['MSE'] = np.asarray((comb['truth'] - comb['estimate'])**2, dtype=np.float32)
     comb['Err'] = np.abs(np.asarray((comb['truth'] - comb['estimate']), dtype=np.float32))
-    # comb['relErr'] = np.abs(np.asarray((comb['Err'] / comb['truth']), dtype=np.float32))
 
     return comb
 
@@ -560,9 +565,7 @@ def fix_wrong_subjects_name(data):
     data = data.drop(to_remove)
 
     #get MSE, Err and stuff
-    data['MSE'] = np.asarray((data['truth'] - data['estimate'])**2, dtype=np.float32)
     data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))
-    data['relErr'] = np.abs(np.asarray((data['Err'] / data['truth']), dtype=np.float32))
 
     return data
 
@@ -580,9 +583,7 @@ def use_group_truth_value_for_subjects_in_HDDMsharedVar(data):
             estimate_value = data.get_value(group_idx, col='estimate')
             data.set_value(t_idx, col='estimate', value=estimate_value)
 
-    data['MSE'] = np.asarray((data['truth'] - data['estimate'])**2, dtype=np.float32)
     data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))
-    data['relErr'] = np.abs(np.asarray((data['Err'] / data['truth']), dtype=np.float32))
 
     return data
 
@@ -608,9 +609,7 @@ def add_group_stat_to_SingleOptimation(data, stat):
         group_estimate = stat(t_data['estimate'])
         data.set_value(t_idx, col='estimate', value=group_estimate)
 
-    data['MSE'] = np.asarray((data['truth'] - data['estimate'])**2, dtype=np.float32)
     data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))
-    data['relErr'] = np.abs(np.asarray((data['Err'] / data['truth']), dtype=np.float32))
 
     return data
 
