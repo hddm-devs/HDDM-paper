@@ -1,6 +1,7 @@
 import hashlib
 import cPickle
 import hddm
+import my_hddm
 import numpy as np
 import pandas as pd
 import copy
@@ -85,7 +86,7 @@ class EstimationHDDMGamma(EstimationHDDMBase):
         super(EstimationHDDMGamma, self).__init__(data, **kwargs)
 
     def init_model(self, data):
-            self.model = hddm.models.HDDMGamma(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
+            self.model = my_hddm.HDDMGamma(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
 
 #noniformative HDDM
 class EstimationNoninformHDDM(EstimationHDDMBase):
@@ -94,7 +95,7 @@ class EstimationNoninformHDDM(EstimationHDDMBase):
         super(EstimationNoninformHDDM, self).__init__(data, **kwargs)
 
     def init_model(self, data):
-            self.model = hddm.models.HDDMGamma(data, group_only_nodes = ['sz','st','sv'], informative=False, **self.init_kwargs)
+            self.model = my_hddm.HDDMGamma(data, group_only_nodes = ['sz','st','sv'], informative=False, **self.init_kwargs)
 
 
 #HDDMRegressor Estimation
