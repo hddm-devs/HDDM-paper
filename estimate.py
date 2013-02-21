@@ -613,7 +613,6 @@ def add_group_stat_to_SingleOptimation(data, stat):
 
     return data
 
-
 def add_group_stat_to_SingleRegressor(data):
 
     data = data.copy()

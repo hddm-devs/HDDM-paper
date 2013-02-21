@@ -231,11 +231,6 @@ if __name__ == "__main__":
                         help='Run only regression estimations.')
     parser.add_argument('--priors', action='store_true', dest='priors', default=False,
                         help='Run only priors experiment.')
-    parser.add_argument('-st', action='store_true', dest='st', default=False)
-    parser.add_argument('-sv', action='store_true', dest='sv', default=False)
-    parser.add_argument('-sz', action='store_true', dest='sz', default=False)
-    parser.add_argument('-z', action='store_true', dest='z', default=False)
-    parser.add_argument('--full', action='store_true', dest='full', default=False)
     parser.add_argument('--debug', action='store_true', dest='debug', default=False)
     parser.add_argument('--discardfig', action='store_true', dest='discardfig', default=False)
 
@@ -243,14 +238,6 @@ if __name__ == "__main__":
 
     result = parser.parse_args()
 
-    if result.st or result.full:
-        include.append('st')
-    if result.sv or result.full:
-        include.append('sv')
-    if result.sz or result.full:
-        include.append('sz')
-    if result.z or result.full:
-        include.append('z')
 
     run_trials, run_subjs, run_recovery, run_outliers = result.trials, result.subjs, result.recovery, result.outliers
     run_priors = result.priors
@@ -270,6 +257,7 @@ if __name__ == "__main__":
         run_type = 'recovery'
     elif run_priors:
         run_type = 'priors'
+        include = ['st', 'sv', 'sz', 'z']        
     else:
         raise ValueError("run_type was not found")
 
@@ -286,20 +274,17 @@ if __name__ == "__main__":
 
     if result.run:
         if result.group:
-            estimators = ['HDDMTruncated','Quantiles_group', 'HDDMsharedVar']
+            estimators = ['HDDMGamma','Quantiles_group']
         else:
-            estimators = set(['SingleMAP', 'HDDMTruncated', 'Quantiles_subj',
+            estimators = set(['SingleMAP', 'Quantiles_subj',
             'Quantiles_group','HDDMsharedVar', 'HDDMGamma'])
-            if not result.full:
-                estimators.remove('HDDMTruncated')
 
         if result.debug:
             if run_priors:
-                include = ['st', 'sv', 'sz', 'z']
                 estimators=['HDDMGamma', 'noninformHDDM', 'ML', 'Quantiles_subj']
-                exp = run_experiments(n_subjs=1, n_trials=[10], n_params=1, n_datasets=1, equal_seeds=True,
+                exp = run_experiments(n_subjs=1, n_trials=[20,30,40,50,75,100,150], n_params=60, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
-                                            factor3_vals=[1,2], run_type=run_type)
+                                            factor3_vals=[1,2,3], run_type=run_type)
             if run_trials:
                 exp = run_experiments(n_subjs=12, n_trials=[10,20], n_params=25, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
@@ -326,9 +311,8 @@ if __name__ == "__main__":
 
         else:
             if run_priors:
-                include = ['st', 'sv', 'sz', 'z']
                 estimators=['HDDMGamma', 'noninformHDDM', 'ML', 'Quantiles_subj']
-                exp = run_experiments(n_subjs=1, n_trials=[10,20,30,40,50,75,100,150,250], n_params=30, n_datasets=1, equal_seeds=True,
+                exp = run_experiments(n_subjs=1, n_trials=[10,20,30,40,50,75,100,150,250], n_params=60, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
                                             factor3_vals=[1,2,3], run_type=run_type)
             if run_trials:
@@ -359,6 +343,7 @@ if __name__ == "__main__":
 
     if result.load:
         data = pd.load(fname)
+        data.index.names[-1] = 'param'
         if run_regress:
             data['estimate'] = np.float64(data['estimate'])
             data = est.add_group_stat_to_SingleRegressor(data)
@@ -400,6 +385,25 @@ if __name__ == "__main__":
 
             utils.plot_exp(select(data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type=plot_type, figname='single_' + figname, savefig=savefig)
             utils.plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type=plot_type, figname='group_' + figname, savefig=savefig)
+
+        if run_priors:
+            idx = ~np.isnan(data['50q'])
+            data['estimate'][idx] = data['50q'][idx]
+
+            stat=np.median
+            estimators = ['HDDMGamma', 'ML', 'Quantiles_subj']
+            include = ['a','v','t','z']
+
+            #create figname
+            figname = stat.__name__
+
+            for i in [1, 2, 3]:
+                depends_on= {'v': ['c0', 'c1', 'c2'][:i]}
+                selected_data = select(data, include, depends_on=depends_on, subj=False, estimators=estimators)
+                utils.plot_exp(selected_data.xs(i, level='p_outliers'), stat=stat, plot_type=run_type,
+                                figname='_' + figname, savefig=savefig)
+
+
 
         if run_regress:
             stat=np.median

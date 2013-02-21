@@ -11,17 +11,18 @@ from mpl_toolkits.axes_grid1 import Grid
 import numpy as np
 import pandas as pd
 
-def select(stats, param_names, depends_on, subj=True, require=None):
+def select(stats, param_names, depends_on, subj=True, require=None, estimators=None):
 
     if isinstance(param_names, str):
         param_names = [param_names]
 
-    if subj:
-        estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj',
-        'SingleMAPoutliers', 'HDDMOutliers', 'HDDMGamma', 'HDDMRegressor', 'SingleRegressor']
-    else:
-        estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar', 'HDDMOutliers',
-        'Quantiles_subj', 'HDDMGamma', 'HDDMRegressor', 'SingleRegressor']
+    if estimators is None:
+        if subj:
+            estimators = ['SingleMAP', 'HDDMsharedVar', 'HDDMTruncated', 'Quantiles_subj',
+            'SingleMAPoutliers', 'HDDMOutliers', 'HDDMGamma', 'HDDMRegressor', 'SingleRegressor']
+        else:
+            estimators = ['HDDMTruncated', 'Quantiles_group', 'HDDMsharedVar', 'HDDMOutliers',
+            'Quantiles_subj', 'HDDMGamma', 'HDDMRegressor', 'SingleRegressor']
 
     extracted = {}
 
@@ -60,6 +61,9 @@ def plot_exp(data, stat, plot_type, figname, savefig):
         level_name = 'n_trials'
         xlabel = 'trials'
     elif plot_type == 'regress':
+        level_name = 'n_trials'
+        xlabel = 'trials'
+    elif plot_type == 'priors':
         level_name = 'n_trials'
         xlabel = 'trials'
     else:
