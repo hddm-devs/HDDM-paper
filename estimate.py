@@ -16,7 +16,8 @@ from scipy.optimize import fmin_powell
 from multiprocessing import Pool
 from pandas import DataFrame
 
-
+SINGLE_RUNS_FOLDER = 'simulations/current/single_runs'
+SUMMARY_FOLDER = 'simulations/current/summary'
 
 # For each method that you would like to check you need do create a ass that inherits from
 # the Estimation class and implement the estimate and get_stats attributes.
@@ -287,7 +288,7 @@ def make_hash(o):
         oo['init']['regressor']['func'] = 123
         return hashlib.md5(cPickle.dumps(oo)).hexdigest()
 
-def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
+def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, collect_data=False):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -322,12 +323,17 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
     h = make_hash(kw_dict)
 
     # check if job was already run, if so, load it!
-    fname = os.path.join('temp', '%s.dat' % str(h))
+    fname = os.path.join(SINGLE_RUNS_FOLDER, '%s.dat' % str(h))
     if os.path.isfile(fname):
-        stats = pd.load(fname)
-        print "Loading job %s" % h
-        generate_data=False
-        if len(stats) == 0:
+        if collect_data:
+            stats = pd.load(fname)
+            print "Loading job %s" % h
+            run_estimation=False
+            if len(stats) == 0:
+                return stats
+        else:
+            stats = pd.load(fname)
+            print "Skiping job %s" % h
             return stats
     else:
         #create a file that holds the results and to make sure that no other worker would start
@@ -348,23 +354,23 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
             os.remove(temp_fname)
             stats = pd.load(fname)
             print "Loading job %s" % h
-            generate_data=False
+            run_estimation=False
             if len(stats) == 0:
                 return stats
 
         #else we will continue as usuall
         else:
             print "Working on job %s (%s)" % (h, estimation)
-            generate_data=True
+            run_estimation=True
 
     #generate params and data
     if is_regress:
         params['reg_outcomes'] = 'v'
-        data, group_params = genreg.gen_regression_data(params, generate_data=generate_data, **kw_dict['reg_data'])
+        data, group_params = genreg.gen_regression_data(params, generate_data=True, **kw_dict['reg_data'])
         group_params = {'c1': group_params}
         subj_noise = kw_dict['reg_data']['subj_noise']
     else:
-        data, group_params = hddm.generate.gen_rand_data(params, generate_data=generate_data, **kw_dict['data'])
+        data, group_params = hddm.generate.gen_rand_data(params, generate_data=True, **kw_dict['data'])
         if kw_dict['data']['subjs'] == 1 and n_conds == 1:
             group_params = {'c0': [group_params]}
         elif n_conds == 1:
@@ -376,7 +382,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True):
     group_params = put_all_params_in_a_single_dict(joined_params, group_params, subj_noise, kw_dict['init']['depends_on'])
 
     #estimate
-    if generate_data:
+    if run_estimation:
         try:
             print "Estimation began on %s" % time.ctime()
             data = DataFrame(data)
@@ -415,10 +421,8 @@ def combine_params_and_stats(params, stats):
     return comb
 
 def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params,
-                                  seed_data, n_params, n_datasets, kw_dict, path=None, view=None):
-
-    single = single_recovery_fixed_n_trials
-    analysis_func = lambda kw_seed: single(estimation, kw_seed)
+                                  seed_data, n_params, n_datasets, kw_dict, path=None, view=None,
+                                  collect_data=False):
 
     #create seeds for params and data
     p_seeds = seed_params + np.arange(n_params)
@@ -434,10 +438,12 @@ def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params,
             kw_seed['seed_params'] = p_seed
             kw_seed['seed_data'] = d_seed
             if view is None:
-                d_results[d_seed] = analysis_func(kw_seed)
+                d_results[d_seed] = single_recovery_fixed_n_trials(estimation, kw_seed, raise_errors=True,
+                                                                   collect_data=collect_data)
             else:
                 # append to job queue
-                d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, estimation, kw_seed, False)
+                d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, estimation,
+                                                     kw_seed, False, collect_data)
 
         p_results[p_seed] = d_results
 
