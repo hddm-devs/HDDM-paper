@@ -16,7 +16,7 @@ class HDDMGamma(HDDMBase):
     def pre_sample(self, use_slice=True):
 
         slice_widths = {'a':1, 't':0.01, 'a_var': 0.2, 't_var': 0.15, 'sz': 1.1,
-                        'st': 0.1, 'sv': 3, 'v': 1.5, 'z_trans': 0.2, 'z': 0.1}
+                        'st': 0.1, 'sv': 3, 'v': 1.5, 'z_trans': 0.2, 'z': 0.1, 'p_outlier':1.}
 
         for name, node_descr in self.iter_stochastics():
                 node = node_descr['node']

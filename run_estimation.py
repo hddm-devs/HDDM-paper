@@ -284,8 +284,8 @@ if __name__ == "__main__":
 
         if result.debug:
             if run_priors:
-                estimators=['Quantiles_subj']
-                exp = run_experiments(n_subjs=1, n_trials=[50], n_params=5, n_datasets=1, equal_seeds=True,
+                estimators=['HDDMGamma', 'Quantiles_subj']
+                exp = run_experiments(n_subjs=1, n_trials=[30], n_params=2, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
                                             factor3_vals=[3], run_type=run_type, collect_data=collect_data)
             if run_trials:
@@ -315,7 +315,7 @@ if __name__ == "__main__":
         else:
             if run_priors:
                 estimators=['HDDMGamma', 'ML', 'Quantiles_subj']
-                exp = run_experiments(n_subjs=1, n_trials=[10,20,30,40,50,75,100,150,250], n_params=60, n_datasets=1, equal_seeds=True,
+                exp = run_experiments(n_subjs=1, n_trials=[20,30,40,50,75,100,150,250], n_params=120, n_datasets=1, equal_seeds=True,
                                             include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
                                             factor3_vals=[2,3], run_type=run_type, collect_data=collect_data)
             if run_trials:

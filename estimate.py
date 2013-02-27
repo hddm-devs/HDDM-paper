@@ -11,6 +11,7 @@ import time
 import glob
 import generate_regression as genreg
 import scipy
+import pymc as pm
 
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
@@ -52,6 +53,7 @@ class EstimationHDDMBase(Estimation):
                 self.init_model(self.model.data)
 
         self.model.sample(samples, **kwargs)
+        self.geweke_problem = geweke_test_problem(self.model)
 
     def get_stats(self):
         stats = self.model.gen_stats()
@@ -393,6 +395,14 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, colle
             os.remove(temp_fname)
             print "Estimation ended on %s" % time.ctime()
 
+
+            if hasattr(est, 'geweke_problem') and model.geweke_problem:
+                print "Warning!!! Geweke problem was found"
+                with open('geweke_problems','a') as g_file:
+                    g_file.write('******* %s\n ' % time.ctime())
+                    g_file.write('%s\n' % pd.Series(kw_dict))
+                    g_file.write('fname: %s\n' % fname)
+
         #raise or log errors
         except Exception as err:
             if raise_errors:
@@ -643,3 +653,10 @@ def add_group_stat_to_SingleRegressor(data):
 
     return data
 
+def geweke_test_problem(model):
+    g = pm.geweke(model.mc)
+    for output in g.values():
+        values = np.array(output)[:,1]
+        if np.any(np.abs(values) > 2):
+            return True
+    return False
