@@ -11,6 +11,8 @@ from mpl_toolkits.axes_grid1 import Grid
 import numpy as np
 import pandas as pd
 
+#utils.one_vs_others(utils.select(data, include, depends_on= {'v': ['c0', 'c1', 'c2']}, subj=False, require=lambda x:x[2]==3 and x[1]==20, estimators=estimators), 'HDDMGamma')
+
 def select(stats, param_names, depends_on, subj=True, require=None, estimators=None):
 
     if isinstance(param_names, str):
@@ -133,7 +135,7 @@ def plot_recovery_exp(data, tag='', abs_min=-5, abs_max=5, gridsize=100, save=Tr
         plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
         plt.savefig('recovery_exp_%s.svg'%(tag))
 
-def one_vs_others(data, main_estimator, tag='', gridsize=100, save=True):
+def one_vs_others(data, main_estimator, tag='', gridsize=100, save=False, fig=None, color='b'):
 
     data = data[['truth', 'estimate','Err']].dropna()
     data_params = data.groupby(level=('knode',))[['truth', 'estimate']]
@@ -146,34 +148,39 @@ def one_vs_others(data, main_estimator, tag='', gridsize=100, save=True):
     main_data = grouped_data.get_group(main_estimator)
     ni = len(grouped_data) - 1
     nj = len(data.groupby(level=('knode',)))
-    fig = plt.figure()#figsize=(9, 3*nj))
+    if fig is None:
+        fig = plt.figure()#figsize=(9, 3*nj))
     counter = 0
     for j, (param_name, param_data) in enumerate(data.groupby(level=('knode',))):
-        for i, (est_name, est_data) in enumerate(param_data.groupby(level=('estimation',))):
+        for i, (est_name, est_data) in enumerate(param_data.groupby(level=('estimation',))):        
             if est_name == main_estimator:
                 continue
             counter = counter + 1
             ax = fig.add_subplot(nj, ni, counter)
-            minimaxi = (mini[param_name], maxi[param_name])
+            # minimaxi = (mini[param_name], maxi[param_name])
 #            ax.set_xlim(minimaxi)
 #            ax.set_ylim(minimaxi)
             ax.set_xlabel(est_name)
-            ax.set_ylabel(PARAM_NAMES[param_name])
-            kwargs = {'gridsize': gridsize, 'bins': 'log'}
+            # ax.set_ylabel(PARAM_NAMES[param_name])
+            ax.set_ylabel(param_name)
+            # kwargs = {'gridsize': gridsize, 'bins': 'log'}
 #                      'extent': (mini[param_name], maxi[param_name], mini[param_name], maxi[param_name])}
 #            ax.hexbin(np.abs(est_data.relErr), main_data.ix[param_name].relErr, **kwargs)
 #            ax.scatter(np.abs(est_data.relErr), np.abs(main_data.ix[param_name].relErr))
-            ax.scatter(est_data.Err, main_data.ix[param_name].Err)
+            ax.scatter(est_data.Err, main_data.ix[param_name].Err,c=color)
             lb = min(ax.get_xlim()[0], ax.get_ylim()[0])
-            ub = max(ax.get_xlim()[1], ax.get_ylim()[1])
+            ub = min(ax.get_xlim()[1], ax.get_ylim()[1])
             ax.plot([lb, ub], [lb, ub])
-#            ax.axis('equal')
+            # ax.axis('equal')
             ax.plot()
+            # ax.axis('scaled')
 
 
     if save:
         plt.savefig('recovery_exp_%s.png'%(tag), dpi=600)
         plt.savefig('recovery_exp_%s.svg'%(tag))
+
+    return fig
 
 
 def likelihood_of_detection(data, subj, savefig):
