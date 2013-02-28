@@ -396,7 +396,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, colle
             print "Estimation ended on %s" % time.ctime()
 
 
-            if hasattr(est, 'geweke_problem') and model.geweke_problem:
+            if hasattr(est, 'geweke_problem') and est.geweke_problem:
                 print "Warning!!! Geweke problem was found"
                 with open('geweke_problems','a') as g_file:
                     g_file.write('******* %s\n ' % time.ctime())
