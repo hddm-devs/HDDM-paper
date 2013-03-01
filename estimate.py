@@ -290,7 +290,7 @@ def make_hash(o):
         oo['init']['regressor']['func'] = 123
         return hashlib.md5(cPickle.dumps(oo)).hexdigest()
 
-def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, collect_data=False):
+def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, action='smart'):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -326,14 +326,14 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, colle
 
     # check if job was already run, if so, load it!
     fname = os.path.join(SINGLE_RUNS_FOLDER, '%s.dat' % str(h))
-    if os.path.isfile(fname):
-        if collect_data:
+    if os.path.isfile(fname) and (action != 'rerun'):
+        if action == 'collect':
             stats = pd.load(fname)
             print "Loading job %s" % h
             run_estimation=False
             if len(stats) == 0:
                 return stats
-        else:
+        elif action == 'smart':
             stats = pd.load(fname)
             print "Skiping job %s" % h
             return stats
@@ -432,7 +432,7 @@ def combine_params_and_stats(params, stats):
 
 def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params,
                                   seed_data, n_params, n_datasets, kw_dict, path=None, view=None,
-                                  collect_data=False):
+                                  action='smart'):
 
     #create seeds for params and data
     p_seeds = seed_params + np.arange(n_params)
@@ -449,11 +449,11 @@ def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params,
             kw_seed['seed_data'] = d_seed
             if view is None:
                 d_results[d_seed] = single_recovery_fixed_n_trials(estimation, kw_seed, raise_errors=True,
-                                                                   collect_data=collect_data)
+                                                                   action=action)
             else:
                 # append to job queue
                 d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, estimation,
-                                                     kw_seed, False, collect_data)
+                                                     kw_seed, False, action)
 
         p_results[p_seed] = d_results
 
