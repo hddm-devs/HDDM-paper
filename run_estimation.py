@@ -267,7 +267,7 @@ if __name__ == "__main__":
     if result.debug:
         fname = os.path.join(est.SUMMARY_FOLDER, run_type + '_debug' + '.dat')
     else:
-        fname = os.path.join(est.SUMMARY_FOLDER, run_type + '_debug' + '.dat')
+        fname = os.path.join(est.SUMMARY_FOLDER, run_type + '.dat')
 
     if result.parallel:
         c = parallel.Client(profile=result.profile)
