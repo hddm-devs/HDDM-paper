@@ -34,7 +34,7 @@ PARAM_NAMES = {'a': 'a',
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
                     estimators=None, view=None, depends_on = None, equal_seeds=True, run_type=None,
-                    factor3_vals = None, action='smart'):
+                    factor3_vals = None, action='run'):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
@@ -234,8 +234,8 @@ if __name__ == "__main__":
                         help='Run only priors experiment.')
     parser.add_argument('--debug', action='store_true', dest='debug', default=False)
     parser.add_argument('--discardfig', action='store_true', dest='discardfig', default=False)
-    parser.add_argument('--action', action='store', dest='action', default='smart',
-                        help='Which action to do: smart/collect/rerun')
+    parser.add_argument('--action', action='store', dest='action', default='run',
+                        help='Which action to do: run/collect/delete')
 
 
     include=['v','t','a']

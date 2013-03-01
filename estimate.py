@@ -290,7 +290,7 @@ def make_hash(o):
         oo['init']['regressor']['func'] = 123
         return hashlib.md5(cPickle.dumps(oo)).hexdigest()
 
-def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, action='smart'):
+def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, action='run'):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -326,17 +326,21 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
 
     # check if job was already run, if so, load it!
     fname = os.path.join(SINGLE_RUNS_FOLDER, '%s.dat' % str(h))
-    if os.path.isfile(fname) and (action != 'rerun'):
+    if os.path.isfile(fname):
         if action == 'collect':
             stats = pd.load(fname)
             print "Loading job %s" % h
             run_estimation=False
             if len(stats) == 0:
                 return stats
-        elif action == 'smart':
+        elif action == 'run':
             stats = pd.load(fname)
             print "Skiping job %s" % h
             return stats
+        elif action == 'delete':
+            os.remove(fname)
+            return pd.DataFrame()
+
     else:
         #create a file that holds the results and to make sure that no other worker would start
         #working on this job
@@ -432,7 +436,7 @@ def combine_params_and_stats(params, stats):
 
 def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params,
                                   seed_data, n_params, n_datasets, kw_dict, path=None, view=None,
-                                  action='smart'):
+                                  action='run'):
 
     #create seeds for params and data
     p_seeds = seed_params + np.arange(n_params)
