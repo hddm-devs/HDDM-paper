@@ -6,8 +6,10 @@ import sys
 import kabuki
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import Grid
-
+try:
+    from mpl_toolkits.axes_grid1 import Grid
+except IOError:
+   pass
 import numpy as np
 import pandas as pd
 
