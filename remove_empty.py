@@ -1,9 +1,15 @@
 import os
 import glob
-import estimate as est
+import argparse
 
 if __name__ == "__main__":
-    filenames = glob.glob(est.SINGLE_RUNS_FOLDER + '/*.dat*')
+    parser = argparse.ArgumentParser(description='Run HDDM experiments.', add_help=True)
+    parser.add_argument('folder', type=str)
+
+    result = parser.parse_args()
+    folder = result.folder
+
+    filenames = glob.glob(os.path.join('simulations', folder, 'single_runs/*.dat*'))
     for file in filenames:
         if os.stat(file).st_size == 257:
             os.remove(file)
