@@ -17,8 +17,6 @@ from scipy.optimize import fmin_powell
 from multiprocessing import Pool
 from pandas import DataFrame
 
-SINGLE_RUNS_FOLDER = 'simulations/current/single_runs'
-SUMMARY_FOLDER = 'simulations/current/summary'
 
 # For each method that you would like to check you need do create a ass that inherits from
 # the Estimation class and implement the estimate and get_stats attributes.
@@ -290,7 +288,8 @@ def make_hash(o):
         oo['init']['regressor']['func'] = 123
         return hashlib.md5(cPickle.dumps(oo)).hexdigest()
 
-def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, action='run'):
+def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, action='run',
+                                   single_runs_folder='.'):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -325,7 +324,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
     h = make_hash(kw_dict)
 
     # check if job was already run, if so, load it!
-    fname = os.path.join(SINGLE_RUNS_FOLDER, '%s.dat' % str(h))
+    fname = os.path.join(single_runs_folder, '%s.dat' % str(h))
     if os.path.isfile(fname):
         if action == 'collect':
             stats = pd.load(fname)
@@ -372,11 +371,11 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
     #generate params and data
     if is_regress:
         params['reg_outcomes'] = 'v'
-        data, group_params = genreg.gen_regression_data(params, generate_data=True, **kw_dict['reg_data'])
+        data, group_params = genreg.gen_regression_data(params, **kw_dict['reg_data'])
         group_params = {'c1': group_params}
         subj_noise = kw_dict['reg_data']['subj_noise']
     else:
-        data, group_params = hddm.generate.gen_rand_data(params, generate_data=True, **kw_dict['data'])
+        data, group_params = hddm.generate.gen_rand_data(params, **kw_dict['data'])
         if kw_dict['data']['subjs'] == 1 and n_conds == 1:
             group_params = {'c0': [group_params]}
         elif n_conds == 1:
@@ -434,7 +433,7 @@ def combine_params_and_stats(params, stats):
 
     return comb
 
-def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params,
+def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params, single_runs_folder,
                                   seed_data, n_params, n_datasets, kw_dict, path=None, view=None,
                                   action='run'):
 
@@ -453,11 +452,11 @@ def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params,
             kw_seed['seed_data'] = d_seed
             if view is None:
                 d_results[d_seed] = single_recovery_fixed_n_trials(estimation, kw_seed, raise_errors=True,
-                                                                   action=action)
+                                                                   action=action, single_runs_folder=single_runs_folder)
             else:
                 # append to job queue
                 d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, estimation,
-                                                     kw_seed, False, action)
+                                                     kw_seed, False, action, single_runs_folder=single_runs_folder)
 
         p_results[p_seed] = d_results
 

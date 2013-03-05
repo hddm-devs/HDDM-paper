@@ -34,7 +34,7 @@ PARAM_NAMES = {'a': 'a',
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
                     estimators=None, view=None, depends_on = None, equal_seeds=True, run_type=None,
-                    factor3_vals = None, action='run'):
+                    factor3_vals = None, action='run', single_runs_folder='.'):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
@@ -168,7 +168,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     #run analysis
                     models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
                                                          n_datasets=n_datasets, kw_dict=kw_dict_model, view=view,
-                                                         equal_seeds=equal_seeds, action=action)
+                                                         equal_seeds=equal_seeds, action=action, single_runs_folder=single_runs_folder)
 
                 factor3_results[cur_value] = models_results
             #end of (for cur_outliers in factor3_vals)
@@ -224,10 +224,6 @@ if __name__ == "__main__":
                         help='Run recovery experiment.')
     parser.add_argument('--outliers', action='store_true', dest='outliers', default=False,
                         help='Run outliers experiment')
-    parser.add_argument('--all', action='store_true', dest='all', default=False,
-                        help='Run all of the above experiments.')
-    parser.add_argument('--group', action='store_true', dest='group', default=False,
-                        help='Run only group estimations.')
     parser.add_argument('--regress', action='store_true', dest='regress', default=False,
                         help='Run only regression estimations.')
     parser.add_argument('--priors', action='store_true', dest='priors', default=False,
@@ -236,6 +232,8 @@ if __name__ == "__main__":
     parser.add_argument('--discardfig', action='store_true', dest='discardfig', default=False)
     parser.add_argument('--action', action='store', dest='action', default='run',
                         help='Which action to do: run/collect/delete')
+    parser.add_argument('--folder', action='store', dest='folder', default='current',
+                        help='Which folder are the simulations going to be saved to/loaded from')
 
 
     include=['v','t','a']
@@ -248,7 +246,7 @@ if __name__ == "__main__":
     run_regress = result.regress
     savefig = not result.discardfig
     action = result.action
-
+    folder = result.folder
 
     if run_regress:
         run_type = 'regress'
@@ -262,14 +260,17 @@ if __name__ == "__main__":
         run_type = 'recovery'
     elif run_priors:
         run_type = 'priors'
-        include = ['st', 'sv', 'sz', 'z']
     else:
         raise ValueError("run_type was not found")
 
+    main_folder = os.path.join('simulations',run_type, folder)
+    single_runs_folder = os.path.join(main_folder, 'single_runs')
+    summary_folder = os.path.join(main_folder, 'summary')
+
     if result.debug:
-        fname = os.path.join(est.SUMMARY_FOLDER, run_type + '_debug' + '.dat')
+        fname = os.path.join(summary_folder, run_type + '_debug' + '.dat')
     else:
-        fname = os.path.join(est.SUMMARY_FOLDER, run_type + '.dat')
+        fname = os.path.join(summary_folder, run_type + '.dat')
 
     if result.parallel:
         c = parallel.Client(profile=result.profile)
@@ -277,74 +278,21 @@ if __name__ == "__main__":
     else:
         view = None
 
+
+    #load arguments
+    sys.path.insert(0, main_folder)
+    import args
+    exp_kwargs = args.args()
+
+    #run
     if result.run:
-        if result.group:
-            estimators = ['HDDMGamma','Quantiles_group']
-        else:
-            estimators = set(['SingleMAP', 'Quantiles_subj',
-            'Quantiles_group','HDDMsharedVar', 'HDDMGamma'])
 
-        if result.debug:
-            if run_priors:
-                estimators=['ML', 'Quantiles_subj']
-                exp = run_experiments(n_subjs=1, n_trials=[30], n_params=2, n_datasets=1, equal_seeds=True,
-                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
-                                            factor3_vals=[3], run_type=run_type, action=action)
-            if run_trials:
-                exp = run_experiments(n_subjs=12, n_trials=[10,20], n_params=25, n_datasets=1, equal_seeds=True,
-                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
-                                            run_type=run_type, action=action)
-            if run_subjs:
-                exp = run_experiments(n_subjs=[6,7], n_trials=20, n_params=2, n_datasets=1, include=include,
-                                           view=view, estimators=estimators, depends_on = {'v':'condition'},
-                                           run_type=run_type, action=action)
-            if run_recovery:
-                exp = run_experiments(n_subjs=5, n_trials=30, estimators=estimators, n_params=2, n_datasets=1,
-                                               include=include, view=view, depends_on = {'v':'condition'},
-                                               run_type=run_type, action=action)
-            if run_outliers:
-                outliers_estimators = ['SingleMAP', 'SingleMAPoutliers', 'Quantiles_subj','HDDMOutliers']
-                exp = run_experiments(n_subjs=[4], n_trials=(100), n_params=2, n_datasets=1, include=include,
-                                              estimators=outliers_estimators, view=view, factor3_vals=[0.06],
-                                              run_type=run_type, action=action)
-            if run_regress:
-                regress_estimators = ['SingleRegressor', 'HDDMRegressor']
-                include = ['v','t','a','sv']
-                exp = run_experiments(n_subjs=10, n_trials=30, n_params=1, n_datasets=1, include=include,
-                                              estimators=regress_estimators, view=view, factor3_vals=[0.1, 0.3],
-                                              run_type=run_type, action=action)
+        #run experiment
+        print exp_kwargs
+        exp = run_experiments(view=view, action=action, single_runs_folder=single_runs_folder,
+                              **exp_kwargs)
 
-        else:
-            if run_priors:
-                estimators=['HDDMGamma', 'ML', 'Quantiles_subj']
-                exp = run_experiments(n_subjs=1, n_trials=[20,30,40,50,75,100,150,250], n_params=120, n_datasets=1, equal_seeds=True,
-                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
-                                            factor3_vals=[2,3], run_type=run_type, action=action)
-            if run_trials:
-                exp = run_experiments(n_subjs=12, n_trials=[10,20,30,40,50,75,100,150,250], n_params=25, n_datasets=1, equal_seeds=True,
-                                            include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
-                                            action=action)
-            if run_subjs:
-                estimators.remove('HDDMsharedVar')
-                exp = run_experiments(n_subjs=list(np.arange(5, 31, 5)), n_trials=20, n_params=25, n_datasets=1, equal_seeds=True,
-                                           include=include, view=view, depends_on = {'v':'condition'}, estimators=estimators,
-                                           action=action)
-            if run_recovery:
-                exp = run_experiments(n_subjs=12, n_trials=30, n_params=200, n_datasets=1, include=include, equal_seeds=True,
-                                               view=view, depends_on = {'v':'condition'}, estimators=estimators,
-                                               action=action)
-            if run_outliers:
-                outliers_estimators = ['HDDMsharedVar', 'HDDMOutliers', 'Quantiles_subj', 'Quantiles_group']
-                exp = run_experiments(n_subjs=(5,10,15), n_trials=[250,], n_params=25, n_datasets=1, include=include, equal_seeds=True,
-                                              estimators=outliers_estimators, depends_on = {'v':'condition'}, view=view,
-                                              factor3_vals=[0.06], action=action)
-            if run_regress:
-                regress_estimators = ['SingleRegressor', 'HDDMRegressor']
-                include = ('a','v','t','sv')
-                exp = run_experiments(n_subjs=12, n_trials=[30,40,50,75,100,150,250], n_params=25, n_datasets=1, include=include,
-                                              estimators=regress_estimators, view=view, factor3_vals=[0.1, 0.3, 0.5],
-                                              action=action)
-
+        #collect data
         if action == 'collect':
             data = merge(exp)
             if not run_regress:
