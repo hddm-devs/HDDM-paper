@@ -269,3 +269,107 @@ class HDDMGamma(HDDMBase):
         #create the avg model
         avg_model  = self.__class__(self.data, include=self.include, is_group_model=False, **self._kwargs)
         return avg_model
+
+
+# class HDDM2(HDDGamma):
+#     def __init__(self, *args, **kwargs):
+#         super(self.__class__, self).__init__(*args, **kwargs)
+
+#     def pre_sample(self, use_slice=True):
+
+#         slice_widths = {'a':1, 't':0.01, 'a_var': 0.2, 't_var': 0.15, 'sz': 1.1,
+#                         'st': 0.1, 'sv': 3, 'v': 1.5, 'z_trans': 0.2, 'z': 0.1, 'p_outlier':1.}
+
+#         for name, node_descr in self.iter_stochastics():
+#                 node = node_descr['node']
+#                 knode_name = node_descr['knode_name'].replace('_subj', '')
+#                 left = None
+#                 if knode_name in ['v', 'z_trans'] and self.is_group_model:
+#                     self.mc.use_step_method(steps.kNormalNormal, node)
+#                 else:
+#                     if knode_name in ['st', 'sv', 'sz']:
+#                         left = 0
+#                     else:
+#                         left = None
+#                     self.mc.use_step_method(steps.SliceStep, node, width=slice_widths[knode_name],
+#                                             left=left, maxiter=1000)
+
+#     def _create_stochastic_knodes(self, include):
+#         knodes = OrderedDict()
+#         if 'a' in include:
+#             knodes.update(self.create_family_gamma('a', g_mean=1.5, g_std=0.75, var_S=0.05, var_value=0.1, value=1))
+#         if 'v' in include:
+#             knodes.update(self.create_family_shifted_normal('v', value=0, g_tau=5**-2, var_S=1))
+#         if 't' in include:
+#             knodes.update(self.create_family_gamma('t', g_mean=.4, g_std=0.2, value=0.01, var_S=0.05, var_value=0.2))
+#         if 'sv' in include:
+#             knodes['sv_bottom'] = Knode(pm.HalfNormal, 'sv', tau=2**-2, value=1, depends=self.depends['sv'])
+#         if 'sz' in include:
+#             knodes['sz_bottom'] = Knode(pm.Beta, 'sz', alpha=1, beta=3, value=0.01, depends=self.depends['sz'])
+#         if 'st' in include:
+#             knodes['st_bottom'] = Knode(pm.HalfNormal, 'st', tau=0.3**-2, value=0.01, depends=self.depends['st'])
+#         if 'z' in self.include:
+#             knodes.update(self.create_family_invlogit('z', value=.5, g_tau=0.5**-2, var_S=0.05))
+#         if 'p_outlier' in include:
+#             knodes['p_outlier_bottom'] = Knode(pm.Beta, 'p_outlier', alpha=1, beta=15, value=0.01, depends=self.depends['p_outlier'])
+
+#         return knodes
+
+#     def create_family_shifted_normal(self, name, value=0, g_mu=None,
+#                              g_tau=15**-2, var_S = 1,
+#                              var_value=.1):
+#         """Create a family of knodes. A family is a group of knodes
+#         that belong together.
+
+#         For example, a family could consist of the following distributions:
+#         * group mean g_mean (Normal(g_mu, g_tau))
+#         * group variability g_var (Uniform(var_lower, var_upper))
+#         * transform node g_var_trans for g_var (x -> x**-2)
+#         * subject (Normal(g_mean, g_var_trans))
+
+#         In fact, if is_group_model is True and the name does not appear in
+#         group_only nodes, this is the family that will be created.
+
+#         Otherwise, only a Normal knode will be returned.
+
+#         :Arguments:
+#             name : str
+#                 Name of the family. Each family member will have this name prefixed.
+
+#         :Optional:
+#             value : float
+#                 Starting value.
+#             g_mu, g_tau, var_lower, var_upper, var_value : float
+#                 The hyper parameters for the different family members (see above).
+
+#         :Returns:
+#             OrderedDict: member name -> member Knode
+#         """
+#         if g_mu is None:
+#             g_mu = value
+
+#         knodes = OrderedDict()
+
+#         if self.is_group_model and name not in self.group_only_nodes:
+#             g = Knode(pm.Normal, '%s' % name, mu=g_mu, tau=g_tau,
+#                       value=value, depends=self.depends[name])
+#             var = Knode(HalfCauchy, '%s_var' % name, S=var_S, value=var_value)
+#             tau = Knode(pm.Deterministic, '%s_tau' % name,
+#                         doc='%s_tau' % name, eval=lambda x: x**-2, x=var,
+#                         plot=False, trace=False, hidden=True)
+#             subj = Knode(pm.Normal, '%s_subj' % name, mu=g, tau=tau,
+#                          value=value, depends=('subj_idx',),
+#                          subj=True, plot=self.plot_subjs)
+#             knodes['%s'%name] = g
+#             knodes['%s_var'%name] = var
+#             knodes['%s_tau'%name] = tau
+#             knodes['%s_bottom'%name] = subj
+
+#         else:
+#             subj = Knode(pm.Normal, name, mu=g_mu, tau=g_tau,
+#                          value=value, depends=self.depends[name])
+
+#             knodes['%s_bottom'%name] = subj
+
+#         return knodes
+

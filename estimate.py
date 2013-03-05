@@ -13,6 +13,7 @@ import generate_regression as genreg
 import scipy
 import pymc as pm
 
+from my_hddm_regression import HDDMRegressor
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
 from pandas import DataFrame
@@ -106,7 +107,66 @@ class EstimationHDDMRegressor(EstimationHDDMBase):
         super(EstimationHDDMRegressor, self).__init__(data, **kwargs)
 
     def init_model(self, data):
-            self.model = hddm.models.HDDMRegressor(data, group_only_nodes = ['sz','st','sv', 'v_slope'], **self.init_kwargs)
+            self.model = HDDMRegressor(data, group_only_nodes = ['sz','st','sv', 'v_slope'], **self.init_kwargs)
+
+class EstimationHDDM2(EstimationHDDMBase):
+
+    def __init__(self, data, **kwargs):
+        super(self.__class__, self).__init__(data, **kwargs)
+
+    def init_model(self, data):
+            self.model = HDDMRegressor(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
+
+
+    def compute_all_v1(self):
+        """
+        compute the stats of v_subj(c1)
+        """
+        v1_stats = pd.DataFrame()
+        for i_subj in range(self.model.num_subjs):
+            v0 = self.model.nodes_db.ix['v(c0)_subj.%d' % i_subj]['node'].trace()
+            shift = self.model.nodes_db.ix['v_shift_subj.%d' % i_subj]['node'].trace()
+            v1_stats = v1_stats.append(self.compute_single_v1(v0, shift, name='v(c1)_subj.%d' % i_subj))
+
+        return v1_stats
+
+    def compute_single_v1(self, v0, shift, name):
+        v1 = v0 +  shift
+
+        quantiles = pm.utils.quantiles(v1, qlist=[2.5, 25, 50, 75, 97.5])
+        s = {}
+        s['mean']   = v1.mean()
+        s['std']    = v1.std()
+        s['2.5q']   = quantiles[2.5]
+        s['25q']    = quantiles[25]
+        s['50q']    = quantiles[50]
+        s['75q']    = quantiles[75]
+        s['97.5q']  = quantiles[97.5]
+
+        return pd.DataFrame(pd.Series(s), columns=[name]).T
+
+    def rename_v_nodes(self, stats):
+
+        def rename_func(name):
+            if name.startswith('v(c0)_subj'):
+                prefix, subj_idx = name.split('.')
+                return 'v_subj(c0).' + subj_idx
+            elif name.startswith('v(c1)_subj'):
+                prefix, subj_idx = name.split('.')
+                return 'v_subj(c1).' + subj_idx
+            else:
+                return name
+
+        return stats.rename(index=rename_func)
+
+
+    def get_stats(self):
+
+        stats = self.model.gen_stats()
+        stats = stats.append(self.compute_all_v1())
+        stats = self.rename_v_nodes(stats)
+
+        return stats
 
 #single HDDMRegressors Estimation
 class SingleRegressor(Estimation):
@@ -118,7 +178,7 @@ class SingleRegressor(Estimation):
         grouped_data = data.groupby('subj_idx')
         self.models = []
         for subj_idx, subj_data in grouped_data:
-            model = hddm.models.HDDMRegressor(subj_data.to_records(), is_group_model=False, **kwargs)
+            model = HDDMRegressor(subj_data.to_records(), is_group_model=False, **kwargs)
             self.models.append(model)
 
     def estimate(self, **ddm_kwargs):
@@ -126,19 +186,57 @@ class SingleRegressor(Estimation):
         ddm_kwargs.pop('map', False)
         [model.sample(samples, **ddm_kwargs) for model in self.models]
 
-    def get_stats(self):
+    def rename_index(self, node_name, subj_idx):
+        if '(' in node_name:
+            knode_name, cond = node_name.split('(')
+            name = knode_name + '_subj' + '(' + cond + '.' + str(subj_idx)
+        else:
+            name = node_name + '_subj.' + str(subj_idx)
+        return name
 
-        def rename_index(node_name, subj_idx):
-            if '(' in node_name:
-                knode_name, cond = node_name.split('(')
-                name = knode_name + '_subj' + '(' + cond + '.' + str(subj_idx)
-            else:
-                name = node_name + '_subj.' + str(subj_idx)
-            return name
+    def get_stats(self):
 
         for subj_idx, model in enumerate(self.models):
             subj_stats = model.gen_stats()
-            subj_stats.rename(index=lambda x:rename_index(x, subj_idx), inplace=True)
+            subj_stats.rename(index=lambda x:self.rename_index(x, subj_idx), inplace=True)
+            if subj_idx == 0:
+                stats = subj_stats
+            else:
+                stats = stats.append(subj_stats)
+
+        return stats
+
+
+#single HDDM2 Estimation
+class EstimationHDDM2Single(SingleRegressor):
+
+    def __init__(self, data, **kwargs):
+        super(EstimationHDDM2Single, self).__init__(data, **kwargs)
+
+    def compute_v1(self, model):
+        v0 = model.nodes_db.ix['v0']['node'].trace()
+        shift = model.nodes_db.ix['v_shift']['node'].trace()
+        v1 = v0 +  shift
+
+
+        quantiles = pm.utils.quantiles(v1, qlist=[2.5, 25, 50, 75, 97.5])
+        s = {}
+        s['mean']   = v1.mean()
+        s['std']    = v1.std()
+        s['2.5q']   = quantiles[2.5]
+        s['25q']    = quantiles[25]
+        s['50q']    = quantiles[50]
+        s['75q']    = quantiles[75]
+        s['97.5q']  = quantiles[97.5]
+
+        return pd.DataFrame(pd.Series(s), columns=['v1']).T
+
+    def get_stats(self):
+
+        for subj_idx, model in enumerate(self.models):
+            subj_stats = model.gen_stats()
+            subj_stats = subj_stats.append(self.compute_v1(model))
+            subj_stats.rename(index=lambda x:self.rename_index(x, subj_idx), inplace=True)
             if subj_idx == 0:
                 stats = subj_stats
             else:
@@ -289,7 +387,7 @@ def make_hash(o):
         return hashlib.md5(cPickle.dumps(oo)).hexdigest()
 
 def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, action='run',
-                                   single_runs_folder='.'):
+                                   single_runs_folder='.', run_type=None):
     """run analysis for a single Estimation.
     Input:
         seed <int> - a seed to generate params and data
@@ -301,11 +399,11 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
             init - for the constructor of the estimation
             estimate - for Estimation().estimate
     """
-    is_regress = kw_dict.has_key('reg_data')
+
 
     #generate params and data for regression experiments
     n_conds = kw_dict['n_conds']
-    if is_regress:
+    if run_type == 'regress':
         np.random.seed(kw_dict['seed_params'])
         _ = kw_dict['params'].pop('n_conds', None)
         params = genreg.gen_reg_params(**kw_dict['params'])
@@ -325,7 +423,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
 
     # check if job was already run, if so, load it!
     fname = os.path.join(single_runs_folder, '%s.dat' % str(h))
-    if os.path.isfile(fname):
+    if os.path.isfile(fname) and (action != 'rerun'):
         if action == 'collect':
             stats = pd.load(fname)
             print "Loading job %s" % h
@@ -339,6 +437,8 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
         elif action == 'delete':
             os.remove(fname)
             return pd.DataFrame()
+        else:
+            raise ValueError('Unknown action')
 
     else:
         #create a file that holds the results and to make sure that no other worker would start
@@ -369,9 +469,9 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
             run_estimation=True
 
     #generate params and data
-    if is_regress:
+    if run_type == 'regress':
         params['reg_outcomes'] = 'v'
-        data, group_params = genreg.gen_regression_data(params, **kw_dict['reg_data'])
+        data, group_params = genreg.gen_regression_data(params, **kw_dict['data'])
         group_params = {'c1': group_params}
         subj_noise = kw_dict['reg_data']['subj_noise']
     else:
@@ -384,7 +484,19 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
             for key, value in group_params.iteritems():
                 group_params[key] = [value]
         subj_noise = kw_dict['data']['subj_noise']
-    group_params = put_all_params_in_a_single_dict(joined_params, group_params, subj_noise, kw_dict['init']['depends_on'])
+
+        # prepare data for HDDMShift
+        if run_type in ['trials', 'subjs']:
+            cond = np.zeros(len(data['condition']))
+            cond[data.condition == 'c1'] = 1
+            data['condition'] = cond
+
+        if n_conds > 1:
+            depends_on = {'v': 'condition'}
+        else:
+            depends_on = {}
+
+    group_params = put_all_params_in_a_single_dict(joined_params, group_params, subj_noise, depends_on=depends_on)
 
     #estimate
     if run_estimation:
@@ -418,9 +530,11 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
                 return pd.DataFrame()
 
     group_params = pd.Series(group_params)
-    if is_regress:
+    if run_type in ['priors', 'trials', 'regress']:
         group_params = group_params.select(lambda x:'reg_outcomes' not in x)
-    return combine_params_and_stats(group_params, stats)
+
+    output = combine_params_and_stats(group_params, stats)
+    return output
 
 def combine_params_and_stats(params, stats):
     if isinstance(stats, pd.DataFrame):
@@ -435,7 +549,7 @@ def combine_params_and_stats(params, stats):
 
 def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params, single_runs_folder,
                                   seed_data, n_params, n_datasets, kw_dict, path=None, view=None,
-                                  action='run'):
+                                  action='run', run_type=None):
 
     #create seeds for params and data
     p_seeds = seed_params + np.arange(n_params)
@@ -452,11 +566,13 @@ def multi_recovery_fixed_n_trials(estimation, equal_seeds, seed_params, single_r
             kw_seed['seed_data'] = d_seed
             if view is None:
                 d_results[d_seed] = single_recovery_fixed_n_trials(estimation, kw_seed, raise_errors=True,
-                                                                   action=action, single_runs_folder=single_runs_folder)
+                                                                   action=action, single_runs_folder=single_runs_folder,
+                                                                   run_type=run_type)
             else:
                 # append to job queue
                 d_results[d_seed] = view.apply_async(single_recovery_fixed_n_trials, estimation,
-                                                     kw_seed, False, action, single_runs_folder=single_runs_folder)
+                                                     kw_seed, False, action, single_runs_folder=single_runs_folder,
+                                                     run_type=run_type)
 
         p_results[p_seed] = d_results
 

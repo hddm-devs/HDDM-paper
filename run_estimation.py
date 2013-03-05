@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from copy import deepcopy, copy
+import pprint
 import time
 import argparse
 import sys
@@ -34,26 +35,13 @@ PARAM_NAMES = {'a': 'a',
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
                     estimators=None, view=None, depends_on = None, equal_seeds=True, run_type=None,
-                    factor3_vals = None, action='run', single_runs_folder='.'):
+                    factor3_vals = None, action='run', single_runs_folder='.', subj_noise=None):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
         n_trials = (n_trials,)
     if depends_on is None:
         depends_on = {}
-
-    #kwards for gen_rand_data
-    subj_noise = {'v':0.1, 'a':0.1, 't':0.05}
-    if 'z' in include:
-        subj_noise['z'] = .1
-    if 'sz' in include:
-        subj_noise['sz'] = .05
-    if 'st' in include:
-        subj_noise['st'] = .05
-    if 'sv' in include:
-        subj_noise['sv'] = .05
-    if run_type == 'regress':
-        subj_noise.update({'v_inter':0.1})
 
     #kwargs for initialize estimation
     init = {'include': include, 'depends_on': depends_on}
@@ -62,7 +50,6 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     estimate = {'runs': 3}
 
     #include params
-    n_conds = 4
     params = {'include': include}
     recover = est.multi_recovery_fixed_n_trials
 
@@ -88,8 +75,14 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
     if 'HDDMRegressor' in estimators:
         estimator_dict['HDDMRegressor'] = {'estimator': est.EstimationHDDMRegressor, 'params': hddm_sampling_params}
 
+    if 'HDDM2' in estimators:
+        estimator_dict['HDDM2'] = {'estimator': est.EstimationHDDM2, 'params': hddm_sampling_params}
+
     if 'SingleRegressor' in estimators:
         estimator_dict['SingleRegressor'] = {'estimator': est.SingleRegressor, 'params': hddm_sampling_params}
+
+    if 'HDDM2Single' in estimators:
+        estimator_dict['HDDM2Single'] = {'estimator': est.EstimationHDDM2Single, 'params': hddm_sampling_params}
 
     if 'HDDMTruncated' in estimators:
         estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': hddm_sampling_params}
@@ -119,12 +112,14 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
                 if run_type == 'priors':
                     n_conds = cur_value
+                else:
+                    n_conds = 2
 
                 #create kw_dict
                 kw_dict = {'params': params, 'init': init, 'estimate': estimate, 'n_conds': n_conds}
 
                 #if this is not a full model we should add exclude params
-                if (set(['sv','st','sz','z','a','v','t']) != set(include)) or run_type == 'regress':
+                if (set(['sv','st','sz','z','a','v','t']) != set(include)) or (run_type in ['regress', 'trials', 'subjs']):
                     if run_type == 'regress':
                         exclude = set(['sv','st','sz','z', 'reg_outcomes'])
                     else:
@@ -134,15 +129,18 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
 
 
                 #create kw_dict['data']
-                if run_type == 'regress':
+                if run_type in ['regress', 'trials', 'subjs']:
                     reg_func = lambda args, cols: args[0]*cols[:,0]+args[1]
-                    reg = {'func': reg_func, 'args':['v_slope','v_inter'], 'covariates': 'cov', 'outcome':'v'}
+                    if run_type == 'regress':
+                        reg = {'func': reg_func, 'args':['v_slope','v_inter'], 'covariates': 'cov', 'outcome':'v'}
+                    else:
+                        reg = {'func': reg_func, 'args':['v_shift','v(c0)'], 'covariates': 'condition', 'outcome':'v'}
                     init['regressor'] = reg
                     kw_dict['init'] = init
 
-                    reg_data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials,
+                    data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials,
                                 'exclude_params': exclude}
-                    kw_dict['reg_data'] = reg_data
+                    kw_dict['data'] = data
 
                 else:
                     if run_type == 'priors':
@@ -167,7 +165,7 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     kw_dict_model['estimate'] = descr['params']
                     #run analysis
                     models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
-                                                         n_datasets=n_datasets, kw_dict=kw_dict_model, view=view,
+                                                         n_datasets=n_datasets, kw_dict=kw_dict_model, view=view, run_type=run_type,
                                                          equal_seeds=equal_seeds, action=action, single_runs_folder=single_runs_folder)
 
                 factor3_results[cur_value] = models_results
@@ -236,7 +234,6 @@ if __name__ == "__main__":
                         help='Which folder are the simulations going to be saved to/loaded from')
 
 
-    include=['v','t','a']
 
     result = parser.parse_args()
 
@@ -284,11 +281,12 @@ if __name__ == "__main__":
     import args
     exp_kwargs = args.args()
 
+
     #run
     if result.run:
 
         #run experiment
-        print exp_kwargs
+        pprint.pprint(exp_kwargs)
         exp = run_experiments(view=view, action=action, single_runs_folder=single_runs_folder,
                               **exp_kwargs)
 
@@ -351,8 +349,8 @@ if __name__ == "__main__":
 
             stat=np.mean
             estimators = ['HDDMGamma', 'ML', 'Quantiles_subj']
-            # include = ['a','v','t','z']
-            include = ['sz','st', 'sv']
+            include = ['a','v','t','z']
+            # include = ['sz','st', 'sv']
 
             #create figname
             figname = stat.__name__
