@@ -1,3 +1,4 @@
+import pprint
 import hashlib
 import cPickle
 import hddm
@@ -475,6 +476,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
         #else we will continue as usuall
         else:
             print "Working on job %s (%s)" % (h, estimation)
+            pprint.pprint(kw_dict)
             run_estimation=True
 
     #generate params and data
@@ -495,7 +497,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
         subj_noise = kw_dict['data']['subj_noise']
 
         # prepare data for HDDMShift
-        if estimation in ESTIMATTIONS_WITH_REGRESSORS:
+        if estimation.__name__ in ESTIMATTIONS_WITH_REGRESSORS:
             cond = np.zeros(len(data['condition']))
             cond[data.condition == 'c1'] = 1
             data['condition'] = cond

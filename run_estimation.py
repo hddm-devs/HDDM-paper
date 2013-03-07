@@ -101,7 +101,6 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         optimizations_params['method'] = 'chisquare'
         estimator_dict['Quantiles_group'] = OrderedDict([('estimator', est.EstimationGroupOptimization), ('params', optimizations_params)])
 
-
     n_subjs_results = {}
     for cur_subjs in n_subjs:
         n_trials_results = {}
