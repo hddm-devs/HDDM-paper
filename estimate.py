@@ -786,9 +786,13 @@ def add_group_stat_to_SingleRegressor(data):
     return data
 
 def geweke_test_problem(model):
-    g = pm.geweke(model.mc)
-    for output in g.values():
+
+    for name, node_desc in model.iter_stochastics():
+        node = node_desc['node']
+        output = pm.geweke(node)
         values = np.array(output)[:,1]
         if np.any(np.abs(values) > 2):
+            print
+            print "Geweke problem was found in: %s" % name
             return True
     return False
