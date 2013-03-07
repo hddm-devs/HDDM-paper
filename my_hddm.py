@@ -15,22 +15,23 @@ class HDDMGamma(HDDMBase):
 
     def pre_sample(self, use_slice=True):
 
-        slice_widths = {'a':1, 't':0.01, 'a_var': 0.2, 't_var': 0.15, 'sz': 1.1,
-                        'st': 0.1, 'sv': 3, 'v': 1.5, 'z_trans': 0.2, 'z': 0.1, 'p_outlier':1.}
+        slice_widths = {'a':1, 't':0.01, 'a_var': 1, 't_var': 0.15, 'sz': 1.1, 'v': 1.5,
+                        'st': 0.1, 'sv': 3, 'z_trans': 0.2, 'z': 0.1, 'p_outlier':1., 'v_var': 1,
+                        'v_shift': 1, 'v(c0)': 1.5, 'v_shift_var': 0.5, 'v(c0)_var': 0.5}
 
         for name, node_descr in self.iter_stochastics():
                 node = node_descr['node']
-                knode_name = node_descr['knode_name'].replace('_subj', '')
-                left = None
-                if knode_name in ['v', 'z_trans'] and self.is_group_model:
+                if isinstance(node, pm.Normal) and np.all([isinstance(x, pm.Normal) for x in node.extended_children]):
                     self.mc.use_step_method(steps.kNormalNormal, node)
                 else:
+                    knode_name = node_descr['knode_name'].replace('_subj', '')
                     if knode_name in ['st', 'sv', 'sz']:
                         left = 0
                     else:
                         left = None
                     self.mc.use_step_method(steps.SliceStep, node, width=slice_widths[knode_name],
                                             left=left, maxiter=1000)
+
 
     def create_family_normal(self, name, value=0, g_mu=None,
                              g_tau=15**-2, var_S = 1,

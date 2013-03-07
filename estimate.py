@@ -12,11 +12,15 @@ import glob
 import generate_regression as genreg
 import scipy
 import pymc as pm
+import traceback
 
 from my_hddm_regression import HDDMRegressor
 from scipy.optimize import fmin_powell
 from multiprocessing import Pool
 from pandas import DataFrame
+
+MODELS_WITH_REGRESSORS = ['HDDMRegressor', 'SingleRegressor', 'HDDM2', 'HDDM2Single']
+ESTIMATTIONS_WITH_REGRESSORS = ['EstimationHDDMRegressor', 'EstimationHDDM2', 'EstimationHDDM2Single', 'SingleRegressor']
 
 
 # For each method that you would like to check you need do create a ass that inherits from
@@ -109,65 +113,6 @@ class EstimationHDDMRegressor(EstimationHDDMBase):
     def init_model(self, data):
             self.model = HDDMRegressor(data, group_only_nodes = ['sz','st','sv', 'v_slope'], **self.init_kwargs)
 
-class EstimationHDDM2(EstimationHDDMBase):
-
-    def __init__(self, data, **kwargs):
-        super(self.__class__, self).__init__(data, **kwargs)
-
-    def init_model(self, data):
-            self.model = HDDMRegressor(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
-
-
-    def compute_all_v1(self):
-        """
-        compute the stats of v_subj(c1)
-        """
-        v1_stats = pd.DataFrame()
-        for i_subj in range(self.model.num_subjs):
-            v0 = self.model.nodes_db.ix['v(c0)_subj.%d' % i_subj]['node'].trace()
-            shift = self.model.nodes_db.ix['v_shift_subj.%d' % i_subj]['node'].trace()
-            v1_stats = v1_stats.append(self.compute_single_v1(v0, shift, name='v(c1)_subj.%d' % i_subj))
-
-        return v1_stats
-
-    def compute_single_v1(self, v0, shift, name):
-        v1 = v0 +  shift
-
-        quantiles = pm.utils.quantiles(v1, qlist=[2.5, 25, 50, 75, 97.5])
-        s = {}
-        s['mean']   = v1.mean()
-        s['std']    = v1.std()
-        s['2.5q']   = quantiles[2.5]
-        s['25q']    = quantiles[25]
-        s['50q']    = quantiles[50]
-        s['75q']    = quantiles[75]
-        s['97.5q']  = quantiles[97.5]
-
-        return pd.DataFrame(pd.Series(s), columns=[name]).T
-
-    def rename_v_nodes(self, stats):
-
-        def rename_func(name):
-            if name.startswith('v(c0)_subj'):
-                prefix, subj_idx = name.split('.')
-                return 'v_subj(c0).' + subj_idx
-            elif name.startswith('v(c1)_subj'):
-                prefix, subj_idx = name.split('.')
-                return 'v_subj(c1).' + subj_idx
-            else:
-                return name
-
-        return stats.rename(index=rename_func)
-
-
-    def get_stats(self):
-
-        stats = self.model.gen_stats()
-        stats = stats.append(self.compute_all_v1())
-        stats = self.rename_v_nodes(stats)
-
-        return stats
-
 #single HDDMRegressors Estimation
 class SingleRegressor(Estimation):
 
@@ -206,6 +151,69 @@ class SingleRegressor(Estimation):
 
         return stats
 
+def compute_single_v1(v0, shift, name):
+    """
+    compute v1 stats from traces of v0 and shift
+    """
+    v1 = v0 +  shift
+
+    quantiles = pm.utils.quantiles(v1, qlist=[2.5, 25, 50, 75, 97.5])
+    s = {}
+    s['mean']   = v1.mean()
+    s['std']    = v1.std()
+    s['2.5q']   = quantiles[2.5]
+    s['25q']    = quantiles[25]
+    s['50q']    = quantiles[50]
+    s['75q']    = quantiles[75]
+    s['97.5q']  = quantiles[97.5]
+
+    return pd.DataFrame(pd.Series(s), columns=[name]).T
+
+class EstimationHDDM2(EstimationHDDMBase):
+
+    def __init__(self, data, **kwargs):
+        super(self.__class__, self).__init__(data, **kwargs)
+
+    def init_model(self, data):
+            self.model = HDDMRegressor(data, group_only_nodes = ['sz','st','sv'], **self.init_kwargs)
+
+
+    def compute_all_v1(self):
+        """
+        compute the stats of v_subj(c1)
+        """
+        v1_stats = pd.DataFrame()
+        for i_subj in range(self.model.num_subjs):
+            v0 = self.model.nodes_db.ix['v(c0)_subj.%d' % i_subj]['node'].trace()
+            shift = self.model.nodes_db.ix['v_shift_subj.%d' % i_subj]['node'].trace()
+            v1_stats = v1_stats.append(compute_single_v1(v0, shift, name='v(c1)_subj.%d' % i_subj))
+
+        return v1_stats
+
+
+
+    def rename_v_nodes(self, stats):
+
+        def rename_func(name):
+            if name.startswith('v(c0)_subj'):
+                prefix, subj_idx = name.split('.')
+                return 'v_subj(c0).' + subj_idx
+            elif name.startswith('v(c1)_subj'):
+                prefix, subj_idx = name.split('.')
+                return 'v_subj(c1).' + subj_idx
+            else:
+                return name
+
+        return stats.rename(index=rename_func)
+
+
+    def get_stats(self):
+
+        stats = self.model.gen_stats()
+        stats = stats.append(self.compute_all_v1())
+        stats = self.rename_v_nodes(stats)
+
+        return stats
 
 #single HDDM2 Estimation
 class EstimationHDDM2Single(SingleRegressor):
@@ -214,8 +222,7 @@ class EstimationHDDM2Single(SingleRegressor):
         super(EstimationHDDM2Single, self).__init__(data, **kwargs)
 
     def compute_v1(self, model):
-        v0 = model.nodes_db.ix['v0']['node'].trace()
-        shift = model.nodes_db.ix['v_shift']['node'].trace()
+
         v1 = v0 +  shift
 
 
@@ -235,7 +242,9 @@ class EstimationHDDM2Single(SingleRegressor):
 
         for subj_idx, model in enumerate(self.models):
             subj_stats = model.gen_stats()
-            subj_stats = subj_stats.append(self.compute_v1(model))
+            v0 = model.nodes_db.ix['v(c0)']['node'].trace()
+            shift = model.nodes_db.ix['v_shift']['node'].trace()
+            subj_stats = subj_stats.append(compute_single_v1(v0, shift, 'v(c1)'))
             subj_stats.rename(index=lambda x:self.rename_index(x, subj_idx), inplace=True)
             if subj_idx == 0:
                 stats = subj_stats
@@ -486,7 +495,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
         subj_noise = kw_dict['data']['subj_noise']
 
         # prepare data for HDDMShift
-        if run_type in ['trials', 'subjs']:
+        if estimation in ESTIMATTIONS_WITH_REGRESSORS:
             cond = np.zeros(len(data['condition']))
             cond[data.condition == 'c1'] = 1
             data['condition'] = cond
@@ -520,6 +529,8 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
 
         #raise or log errors
         except Exception as err:
+            tb = traceback.format_exc()
+            print tb
             if raise_errors:
                 raise err
             else:

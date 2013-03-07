@@ -35,7 +35,8 @@ PARAM_NAMES = {'a': 'a',
 
 def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_datasets=5, include=('v','t','a'),
                     estimators=None, view=None, depends_on = None, equal_seeds=True, run_type=None,
-                    factor3_vals = None, action='run', single_runs_folder='.', subj_noise=None):
+                    factor3_vals = None, action='run', single_runs_folder='.', subj_noise=None,
+                    seed_data=1, seed_params=1):
     if not isinstance(n_subjs, (tuple, list, np.ndarray)):
         n_subjs = (n_subjs,)
     if not isinstance(n_trials, (tuple, list, np.ndarray)):
@@ -44,58 +45,61 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         depends_on = {}
 
     #kwargs for initialize estimation
-    init = {'include': include, 'depends_on': depends_on}
+    init = OrderedDict([('include', include), ('depends_on', depends_on)])
 
     #kwargs for estimation
-    estimate = {'runs': 3}
+    estimate = OrderedDict([('runs', 3)])
 
     #include params
-    params = {'include': include}
+    params = OrderedDict([('include', include)])
     recover = est.multi_recovery_fixed_n_trials
 
     estimator_dict = OrderedDict()
-    hddm_sampling_params = {'samples': 1500, 'burn': 500, 'map': False}
+    hddm_sampling_params = OrderedDict([('samples', 1500), ('burn', 500), ('map', False)])
+    optimizations_params = OrderedDict([('method', 'ML'), ('quantiles', (0.1, 0.3, 0.5, 0.7, 0.9)), ('n_runs', 50)])
     if 'SingleMAP' in estimators:
-        estimator_dict['SingleMAP'] = {'estimator': est.EstimationSingleMAP, 'params': {'runs': 50}}
+        estimator_dict['SingleMAP'] = OrderedDict([('estimator', est.EstimationSingleMAP), ('params', {'runs': 50})])
+
     if 'SingleMAPoutliers' in estimators:
-        estimator_dict['SingleMAPoutliers'] = {'estimator': est.EstimationSingleMAPoutliers, 'params': {'runs': 50}}
+        estimator_dict['SingleMAPoutliers'] = OrderedDict([('estimator', est.EstimationSingleMAPoutliers), ('params', {'runs': 50})])
 
     if 'HDDMsharedVar' in estimators:
-        estimator_dict['HDDMsharedVar'] = {'estimator': est.EstimationHDDMsharedVar, 'params': hddm_sampling_params}
+        estimator_dict['HDDMsharedVar'] = OrderedDict([('estimator', est.EstimationHDDMsharedVar), ('params', hddm_sampling_params)])
 
     if 'HDDMGamma' in estimators:
-        estimator_dict['HDDMGamma'] = {'estimator': est.EstimationHDDMGamma, 'params': hddm_sampling_params}
+        estimator_dict['HDDMGamma'] = OrderedDict([('estimator', est.EstimationHDDMGamma), ('params', hddm_sampling_params)])
 
     if 'noninformHDDM' in estimators:
-        estimator_dict['noninformHDDM'] = {'estimator': est.EstimationNoninformHDDM, 'params': hddm_sampling_params}
+        estimator_dict['noninformHDDM'] = OrderedDict([('estimator', est.EstimationNoninformHDDM), ('params', hddm_sampling_params)])
 
     if 'HDDMOutliers' in estimators:
-        estimator_dict['HDDMOutliers'] = {'estimator': est.EstimationHDDMOutliers, 'params': hddm_sampling_params}
+        estimator_dict['HDDMOutliers'] = OrderedDict([('estimator', est.EstimationHDDMOutliers), ('params', hddm_sampling_params)])
 
     if 'HDDMRegressor' in estimators:
-        estimator_dict['HDDMRegressor'] = {'estimator': est.EstimationHDDMRegressor, 'params': hddm_sampling_params}
+        estimator_dict['HDDMRegressor'] = OrderedDict([('estimator', est.EstimationHDDMRegressor), ('params', hddm_sampling_params)])
 
     if 'HDDM2' in estimators:
-        estimator_dict['HDDM2'] = {'estimator': est.EstimationHDDM2, 'params': hddm_sampling_params}
+        estimator_dict['HDDM2'] = OrderedDict([('estimator', est.EstimationHDDM2), ('params', hddm_sampling_params)])
 
     if 'SingleRegressor' in estimators:
-        estimator_dict['SingleRegressor'] = {'estimator': est.SingleRegressor, 'params': hddm_sampling_params}
+        estimator_dict['SingleRegressor'] = OrderedDict([('estimator', est.SingleRegressor), ('params', hddm_sampling_params)])
 
     if 'HDDM2Single' in estimators:
-        estimator_dict['HDDM2Single'] = {'estimator': est.EstimationHDDM2Single, 'params': hddm_sampling_params}
+        estimator_dict['HDDM2Single'] = OrderedDict([('estimator', est.EstimationHDDM2Single), ('params', hddm_sampling_params)])
 
     if 'HDDMTruncated' in estimators:
-        estimator_dict['HDDMTruncated'] = {'estimator': est.EstimationHDDMTruncated, 'params': hddm_sampling_params}
+        estimator_dict['HDDMTruncated'] = OrderedDict([('estimator', est.EstimationHDDMTruncated), ('params', hddm_sampling_params)])
 
     if 'Quantiles_subj' in estimators:
-        estimator_dict['Quantiles_subj'] = {'estimator': est.EstimationSingleOptimization,
-                                           'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
+        optimizations_params['method'] = 'chisquare'
+        estimator_dict['Quantiles_subj'] = OrderedDict([('estimator', est.EstimationSingleOptimization), ('params', optimizations_params)])
     if 'ML' in estimators:
-        estimator_dict['ML'] = {'estimator': est.EstimationSingleOptimization,
-                                           'params': {'method': 'ML', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
+        optimizations_params['method'] = 'ML'
+        estimator_dict['ML'] = OrderedDict([('estimator', est.EstimationSingleOptimization), ('params', optimizations_params)])
+
     if 'Quantiles_group' in estimators:
-        estimator_dict['Quantiles_group'] = {'estimator': est.EstimationGroupOptimization,
-                                            'params': {'method': 'chisquare', 'quantiles': (0.1, 0.3, 0.5, 0.7, 0.9), 'n_runs': 50}}
+        optimizations_params['method'] = 'chisquare'
+        estimator_dict['Quantiles_group'] = OrderedDict([('estimator', est.EstimationGroupOptimization), ('params', optimizations_params)])
 
 
     n_subjs_results = {}
@@ -116,55 +120,52 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
                     n_conds = 2
 
                 #create kw_dict
-                kw_dict = {'params': params, 'init': init, 'estimate': estimate, 'n_conds': n_conds}
+                kw_dict = OrderedDict([('params', params), ('init', init), ('estimate', estimate), ('n_conds', n_conds)])
 
-                #if this is not a full model we should add exclude params
-                if (set(['sv','st','sz','z','a','v','t']) != set(include)) or (run_type in ['regress', 'trials', 'subjs']):
-                    if run_type == 'regress':
-                        exclude = set(['sv','st','sz','z', 'reg_outcomes'])
-                    else:
-                        exclude = set(['sv','st','sz','z']) - set(include)
+                #exclude params
+                if run_type == 'regress':
+                    exclude = set(['sv','st','sz','z', 'reg_outcomes'])
                 else:
-                    exclude = None
-
+                    exclude = set(['sv','st','sz','z']) - set(include)
 
                 #create kw_dict['data']
-                if run_type in ['regress', 'trials', 'subjs']:
-                    reg_func = lambda args, cols: args[0]*cols[:,0]+args[1]
-                    if run_type == 'regress':
-                        reg = {'func': reg_func, 'args':['v_slope','v_inter'], 'covariates': 'cov', 'outcome':'v'}
-                    else:
-                        reg = {'func': reg_func, 'args':['v_shift','v(c0)'], 'covariates': 'condition', 'outcome':'v'}
-                    init['regressor'] = reg
-                    kw_dict['init'] = init
-
-                    data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials,
-                                'exclude_params': exclude}
-                    kw_dict['data'] = data
-
+                if run_type == 'outliers':
+                    cur_outliers = cur_value
                 else:
-                    if run_type == 'priors':
-                        cur_outliers = 0
-                    elif run_type == 'outliers':
-                        cur_outliers = cur_value
-                    n_outliers = int(cur_trials * cur_outliers)
-                    n_fast_outliers = (n_outliers // 2)
-                    n_slow_outliers = n_outliers - n_fast_outliers
-                    data = {'subjs': cur_subjs, 'subj_noise': subj_noise, 'size': cur_trials - n_outliers,
-                            'n_fast_outliers': n_fast_outliers, 'n_slow_outliers': n_slow_outliers}
-                    if exclude is not None:
-                        data['exclude_params'] = exclude
+                    cur_outliers = 0
+                n_outliers = int(cur_trials * cur_outliers)
+                n_fast_outliers = (n_outliers // 2)
+                n_slow_outliers = n_outliers - n_fast_outliers
+                data = OrderedDict([('subjs', cur_subjs), ('subj_noise', subj_noise), ('size', cur_trials - n_outliers),
+                        ('exclude_params', exclude)])
+                if run_type != 'regress':
+                        data['n_fast_outliers'] = n_fast_outliers
+                        data['n_slow_outliers'] = n_slow_outliers
 
-                    #creat kw_dict
-                    kw_dict['data'] = data
+                #creat kw_dict
+                kw_dict['data'] = data
 
 
                 models_results = {}
                 for model_name, descr in estimator_dict.iteritems():
+
+                    #create kw_dict
                     kw_dict_model = deepcopy(kw_dict)
                     kw_dict_model['estimate'] = descr['params']
+
+                    #update it with regressor information if needed
+                    if model_name in est.MODELS_WITH_REGRESSORS:
+                        reg_func = lambda args, cols: args[0]*cols[:,0]+args[1]
+                        if run_type == 'regress':
+                            reg = {'func': reg_func, 'args':['v_slope','v_inter'], 'covariates': 'cov', 'outcome':'v'}
+                        else:
+                            reg = {'func': reg_func, 'args':['v_shift','v(c0)'], 'covariates': 'condition', 'outcome':'v'}
+                        reg = OrderedDict(sorted(reg.items(), key=lambda t: t[0]))
+                        kw_dict_model['init']['regressor'] = reg
+                        kw_dict_model['init']['depends_on'] = {}
+
                     #run analysis
-                    models_results[model_name] = recover(descr['estimator'], seed_data=1, seed_params=1, n_params=n_params,
+                    models_results[model_name] = recover(descr['estimator'], seed_data=seed_data, seed_params=seed_params, n_params=n_params,
                                                          n_datasets=n_datasets, kw_dict=kw_dict_model, view=view, run_type=run_type,
                                                          equal_seeds=equal_seeds, action=action, single_runs_folder=single_runs_folder)
 
@@ -278,6 +279,10 @@ if __name__ == "__main__":
 
     #load arguments
     sys.path.insert(0, main_folder)
+    try:
+        del sys.modules['args']
+    except KeyError:
+        pass
     import args
     exp_kwargs = args.args()
 
