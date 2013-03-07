@@ -92,7 +92,7 @@ class HDDMGamma(HDDMBase):
         return knodes
 
 
-    def create_family_gamma(self, name, value=1, g_mean=1, g_std=1, var_S=0.1, var_value=.1):
+    def create_family_gamma(self, name, value=1, g_mean=1, g_std=1, std_std=2, var_value=.1):
         """Similar to create_family_normal() but adds an exponential
         transform knode to the subject and group mean nodes. This is useful
         when the parameter space is restricted from [0, +oo).
@@ -108,7 +108,7 @@ class HDDMGamma(HDDMBase):
             g = Knode(pm.Gamma, name, alpha=g_shape, beta=g_rate,
                             value=g_mean, depends=self.depends[name])
 
-            var = Knode(HalfCauchy, '%s_var' % name, S=var_S, value=var_value)
+            var = Knode(pm.HalfNormal, '%s_var' % name, tau=std_std**-2, value=var_value)
 
             shape = Knode(pm.Deterministic, '%s_shape' % name, eval=lambda x,y: (x**2)/(y**2),
                         x=g, y=var, plot=False, trace=False, hidden=True)
@@ -216,11 +216,11 @@ class HDDMGamma(HDDMBase):
     def _create_stochastic_knodes_informative(self, include):
         knodes = OrderedDict()
         if 'a' in include:
-            knodes.update(self.create_family_gamma('a', g_mean=1.5, g_std=0.75, var_S=0.05, var_value=0.1, value=1))
+            knodes.update(self.create_family_gamma('a', g_mean=1.5, g_std=0.75, std_std=2, var_value=0.1, value=1))
         if 'v' in include:
             knodes.update(self.create_family_normal('v', value=0, g_tau=5**-2, var_S=1))
         if 't' in include:
-            knodes.update(self.create_family_gamma('t', g_mean=.4, g_std=0.2, value=0.01, var_S=0.05, var_value=0.2))
+            knodes.update(self.create_family_gamma('t', g_mean=.4, g_std=0.2, value=0.01, std_std=1, var_value=0.2))
         if 'sv' in include:
             knodes['sv_bottom'] = Knode(pm.HalfNormal, 'sv', tau=2**-2, value=1, depends=self.depends['sv'])
         if 'sz' in include:
