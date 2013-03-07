@@ -227,7 +227,7 @@ if __name__ == "__main__":
     parser.add_argument('--priors', action='store_true', dest='priors', default=False,
                         help='Run only priors experiment.')
     parser.add_argument('--debug', action='store_true', dest='debug', default=False)
-    parser.add_argument('--discardfig', action='store_true', dest='discardfig', default=False)
+    parser.add_argument('--savefig', action='store_true', dest='savefig', default=False)
     parser.add_argument('--action', action='store', dest='action', default='run',
                         help='Which action to do: run/collect/delete')
     parser.add_argument('--folder', action='store', dest='folder', default='current',
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     run_trials, run_subjs, run_recovery, run_outliers = result.trials, result.subjs, result.recovery, result.outliers
     run_priors = result.priors
     run_regress = result.regress
-    savefig = not result.discardfig
+    savefig = result.savefig
     action = result.action
     folder = result.folder
 
