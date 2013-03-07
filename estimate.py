@@ -184,6 +184,10 @@ class EstimationHDDM2(EstimationHDDMBase):
         compute the stats of v_subj(c1)
         """
         v1_stats = pd.DataFrame()
+        v0 = self.model.nodes_db.ix['v(c0)']['node'].trace()
+        shift = self.model.nodes_db.ix['v_shift']['node'].trace()
+        v1_stats = v1_stats.append(compute_single_v1(v0, shift, name='v(c1)'))
+
         for i_subj in range(self.model.num_subjs):
             v0 = self.model.nodes_db.ix['v(c0)_subj.%d' % i_subj]['node'].trace()
             shift = self.model.nodes_db.ix['v_shift_subj.%d' % i_subj]['node'].trace()
@@ -194,6 +198,8 @@ class EstimationHDDM2(EstimationHDDMBase):
 
 
     def rename_v_nodes(self, stats):
+
+        stats = stats.rename(index={'v(c0)_var':'v_var'})
 
         def rename_func(name):
             if name.startswith('v(c0)_subj'):

@@ -327,25 +327,29 @@ if __name__ == "__main__":
 
     if result.analyze:
         if run_subjs or run_trials:
+            idx = ~np.isnan(data['50q'])
+            data['estimate'][idx] = data['50q'][idx]
             # include = ['v','a']
-            depends_on= {'v': ['c0', 'c1', 'c2', 'c3']}
-            stat=np.median
+            params = set(['a','v','t']).union(args.args()['include'])
+            depends_on= {'v': ['c0', 'c1']}
+            stat=np.mean
 
             #create figname
-            figname = ''
-            if result.full:
-                figname += 'full'
-            else:
-                figname += 'simple'
-            figname += ('_' + stat.__name__)
+            figname = stat.__name__
 
             if run_subjs:
                 plot_type = 'subjs'
             else:
                 plot_type = 'trials'
 
-            utils.plot_exp(select(data, include, depends_on=depends_on, subj=True) , stat=stat, plot_type=plot_type, figname='single_' + figname, savefig=savefig)
-            utils.plot_exp(select(data, include, depends_on=depends_on, subj=False), stat=stat, plot_type=plot_type, figname='group_' + figname, savefig=savefig)
+            estimators = ['HDDMGamma', 'HDDM2', 'HDDM2Single' 'Quantiles_subj']
+            utils.plot_exp(select(data, params, depends_on=depends_on, subj=True, estimators=estimators),
+                           stat=stat, plot_type=plot_type,
+                           figname='single_' + figname, savefig=savefig)
+            estimators = ['HDDMGamma', 'HDDM2', 'Quantiles_group']
+            utils.plot_exp(select(data, params, depends_on=depends_on, subj=False, estimators=estimators),
+                           stat=stat, plot_type=plot_type,
+                           figname='group_' + figname, savefig=savefig)
 
         if run_priors:
             idx = ~np.isnan(data['50q'])
