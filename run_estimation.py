@@ -91,15 +91,19 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         estimator_dict['HDDMTruncated'] = OrderedDict([('estimator', est.EstimationHDDMTruncated), ('params', hddm_sampling_params)])
 
     if 'Quantiles_subj' in estimators:
-        optimizations_params['method'] = 'chisquare'
-        estimator_dict['Quantiles_subj'] = OrderedDict([('estimator', est.EstimationSingleOptimization), ('params', optimizations_params)])
+        opt_params = deepcopy(optimizations_params)
+        opt_params['method'] = 'chisquare'
+        estimator_dict['Quantiles_subj'] = OrderedDict([('estimator', est.EstimationSingleOptimization), ('params', opt_params)])
+
     if 'ML' in estimators:
-        optimizations_params['method'] = 'ML'
-        estimator_dict['ML'] = OrderedDict([('estimator', est.EstimationSingleOptimization), ('params', optimizations_params)])
+        opt_params = deepcopy(optimizations_params)
+        opt_params['method'] = 'ML'
+        estimator_dict['ML'] = OrderedDict([('estimator', est.EstimationSingleOptimization), ('params', opt_params)])
 
     if 'Quantiles_group' in estimators:
-        optimizations_params['method'] = 'chisquare'
-        estimator_dict['Quantiles_group'] = OrderedDict([('estimator', est.EstimationGroupOptimization), ('params', optimizations_params)])
+        opt_params = deepcopy(optimizations_params)
+        opt_params['method'] = 'chisquare'
+        estimator_dict['Quantiles_group'] = OrderedDict([('estimator', est.EstimationGroupOptimization), ('params', opt_params)])
 
     n_subjs_results = {}
     for cur_subjs in n_subjs:
@@ -342,7 +346,7 @@ if __name__ == "__main__":
             else:
                 plot_type = 'trials'
 
-            estimators = ['HDDMGamma', 'HDDM2', 'HDDM2Single' 'Quantiles_subj']
+            estimators = ['HDDMGamma', 'HDDM2', 'HDDM2Single', 'Quantiles_subj']
             utils.plot_exp(select(data, params, depends_on=depends_on, subj=True, estimators=estimators),
                            stat=stat, plot_type=plot_type,
                            figname='single_' + figname, savefig=savefig)
