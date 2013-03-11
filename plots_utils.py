@@ -12,6 +12,7 @@ except IOError:
    pass
 import numpy as np
 import pandas as pd
+from scipy.stats import ttest_rel
 
 #utils.one_vs_others(utils.select(data, include, depends_on= {'v': ['c0', 'c1', 'c2']}, subj=False, require=lambda x:x[2]==3 and x[1]==20, estimators=estimators), 'HDDMGamma')
 
@@ -154,7 +155,7 @@ def one_vs_others(data, main_estimator, tag='', gridsize=100, save=False, fig=No
         fig = plt.figure()#figsize=(9, 3*nj))
     counter = 0
     for j, (param_name, param_data) in enumerate(data.groupby(level=('knode',))):
-        for i, (est_name, est_data) in enumerate(param_data.groupby(level=('estimation',))):        
+        for i, (est_name, est_data) in enumerate(param_data.groupby(level=('estimation',))):
             if est_name == main_estimator:
                 continue
             counter = counter + 1
@@ -184,8 +185,7 @@ def one_vs_others(data, main_estimator, tag='', gridsize=100, save=False, fig=No
 
     return fig
 
-
-def likelihood_of_detection(data, subj, savefig):
+def likelihood_of_detection_in_regression(data, subj, savefig):
     data = select(data, ['v_slope'], depends_on={}, subj=subj)
     detect = data['2.5q'] > 0
     grouped = detect.dropna().groupby(level=('n_trials', 'p_outliers', 'estimation')).agg(np.mean)
@@ -212,3 +212,58 @@ def likelihood_of_detection(data, subj, savefig):
     if savefig:
         plt.savefig(title + '.png')
         plt.savefig(title + '.svg')
+
+
+def likelihood_of_detection(data, savefig):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    #HDDM2 likelihood
+    hddm2_shift = data.xs(['HDDM2', 'v_shift'], level=['estimation','param'])
+    detect = hddm2_shift['2.5q'] > 0
+    grouped = detect.groupby(level='n_trials').agg(np.mean)
+    ax.errorbar(grouped.index.values,
+                grouped, label='HDDM', lw=2.,
+                marker='o')
+
+    #HDDM Single
+    hddm2_shift = data.xs('HDDM2Single', level='estimation').select(lambda x:'v_shift_subj' in x[-1])
+    detect = hddm2_shift['2.5q'] > 0
+    grouped = detect.groupby(level='n_trials').agg(np.mean)
+    ax.errorbar(grouped.index.values,
+                grouped, label='HDDMSingle', lw=2.,
+                marker='o')
+
+
+    quan_shift = data.xs('Quantiles_subj', level='estimation').select(lambda x:'v_subj' in x[-1])
+    quan_ttest = quan_shift.estimate.groupby(level=['n_trials', 'param_seed']).agg(quantiles_subj_ttest)
+    grouped = quan_ttest.groupby(level='n_trials').agg(np.mean)
+    ax.errorbar(grouped.index.values,
+                grouped, label='Quantiles_subj', lw=2.,
+                marker='o')
+
+    ax.set_xlabel('trials')
+    ax.set_ylabel('prob of detection')
+    plt.legend(loc=0)
+    title = 'likelihood of detection'
+    plt.title(title)
+
+    if savefig:
+        plt.savefig(title + '.png')
+        plt.savefig(title + '.svg')
+
+
+def quantiles_subj_ttest(data, threshold=0.025):
+    """
+    compute ttest on results of Quantiles_subj:
+    Output:
+        is_rejected <boolean> : whether the null hypothesis was rejected
+    """
+    c0 = data.select(lambda x:x[-1].startswith('v_subj(c0)'))
+    c1 = data.select(lambda x:x[-1].startswith('v_subj(c1)'))
+    c0 = c0.sort_index()
+    c1 = c1.sort_index()
+    t_res, p_value = ttest_rel(c0.values, c1.values)
+    return p_value < threshold
+
