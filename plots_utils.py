@@ -227,21 +227,23 @@ def likelihood_of_detection(data, savefig):
                 grouped, label='HDDM', lw=2.,
                 marker='o')
 
-    #HDDM Single
-    hddm2_shift = data.xs('HDDM2Single', level='estimation').select(lambda x:'v_shift_subj' in x[-1])
-    detect = hddm2_shift['2.5q'] > 0
-    grouped = detect.groupby(level='n_trials').agg(np.mean)
-    ax.errorbar(grouped.index.values,
-                grouped, label='HDDMSingle', lw=2.,
-                marker='o')
+    # #HDDM Single
+    # hddm2_shift = data.xs('HDDM2Single', level='estimation').select(lambda x:'v_shift_subj' in x[-1])
+    # detect = hddm2_shift['2.5q'] > 0
+    # grouped = detect.groupby(level='n_trials').agg(np.mean)
+    # ax.errorbar(grouped.index.values,
+    #             grouped, label='HDDMSingle', lw=2.,
+    #             marker='o')
 
 
-    quan_shift = data.xs('Quantiles_subj', level='estimation').select(lambda x:'v_subj' in x[-1])
-    quan_ttest = quan_shift.estimate.groupby(level=['n_trials', 'param_seed']).agg(quantiles_subj_ttest)
-    grouped = quan_ttest.groupby(level='n_trials').agg(np.mean)
-    ax.errorbar(grouped.index.values,
-                grouped, label='Quantiles_subj', lw=2.,
-                marker='o')
+    for method in ['Quantiles_subj', 'ML', 'HDDM2Single', 'HDDM2']:
+        shift = data.xs(method, level='estimation').select(lambda x:'v_subj' in x[-1])
+        res_ttest = shift.estimate.groupby(level=['n_trials', 'param_seed']).agg(subj_ttest)
+        grouped = res_ttest.groupby(level='n_trials').agg(np.mean)
+        ax.errorbar(grouped.index.values,
+                    grouped, label=method, lw=2.,
+                    marker='o')
+
 
     ax.set_xlabel('trials')
     ax.set_ylabel('prob of detection')
@@ -254,7 +256,7 @@ def likelihood_of_detection(data, savefig):
         plt.savefig(title + '.svg')
 
 
-def quantiles_subj_ttest(data, threshold=0.025):
+def subj_ttest(data, threshold=0.025):
     """
     compute ttest on results of Quantiles_subj:
     Output:

@@ -355,6 +355,8 @@ if __name__ == "__main__":
                            stat=stat, plot_type=plot_type,
                            figname='group_' + figname, savefig=savefig)
 
+            utils.likelihood_of_detection(data, savefig=savefig)
+
         if run_priors:
             idx = ~np.isnan(data['50q'])
             data['estimate'][idx] = data['50q'][idx]
@@ -377,8 +379,8 @@ if __name__ == "__main__":
 
         if run_regress:
             stat=np.median
-            utils.likelihood_of_detection(data, subj=False, savefig=savefig)
-            utils.likelihood_of_detection(data, subj=True, savefig=savefig)
+            utils.likelihood_of_detection_in_regression(data, subj=False, savefig=savefig)
+            utils.likelihood_of_detection_in_regression(data, subj=True, savefig=savefig)
             for i in [0.1, 0.3, 0.5]:
                 utils.plot_exp(select(data, ['v_slope'], depends_on={}, subj=True).xs(i, level='p_outliers') , stat=stat, plot_type='regress', figname='single', savefig=savefig)
                 utils.plot_exp(select(data, ['v_slope'], depends_on={}, subj=False).xs(i, level='p_outliers'), stat=stat, plot_type='regress', figname='group', savefig=savefig)
