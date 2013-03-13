@@ -279,7 +279,7 @@ class EstimationSingleMAP(Estimation):
         grouped_data = data.groupby('subj_idx')
         self.models = []
         for subj_idx, subj_data in grouped_data:
-            model = hddm.HDDMTruncated(subj_data.to_records(), is_group_model=False, **kwargs)
+            model = my_hddm.HDDMGamma(subj_data.to_records(), is_group_model=False, **kwargs)
             self.models.append(model)
 
     def estimate(self, pool_size=1, **map_kwargs):
@@ -324,7 +324,7 @@ class EstimationSingleOptimization(Estimation):
         grouped_data = data.groupby('subj_idx')
         self.models = []
         for subj_idx, subj_data in grouped_data:
-            model = hddm.HDDMTruncated(subj_data.to_records(), is_group_model=False, **kwargs)
+            model = my_hddm.HDDMGamma(subj_data.to_records(), is_group_model=False, **kwargs)
             self.models.append(model)
 
     def estimate(self, **quantiles_kwargs):
@@ -354,7 +354,7 @@ class EstimationGroupOptimization(Estimation):
 
     def __init__(self, data, **kwargs):
         super(self.__class__, self).__init__(data, **kwargs)
-        self.model = hddm.HDDMTruncated(data, **kwargs)
+        self.model = my_hddm.HDDMGamma(data, **kwargs)
 
     def estimate(self, **kwargs):
         self.results = self.model.optimize(**kwargs)

@@ -220,13 +220,13 @@ class HDDMGamma(HDDMBase):
         if 'v' in include:
             knodes.update(self.create_family_normal('v', value=0, g_tau=5**-2, var_S=1))
         if 't' in include:
-            knodes.update(self.create_family_gamma('t', g_mean=.4, g_std=0.2, value=0.01, std_std=1, var_value=0.2))
+            knodes.update(self.create_family_gamma('t', g_mean=.4, g_std=0.2, value=0.001, std_std=1, var_value=0.2))
         if 'sv' in include:
             knodes['sv_bottom'] = Knode(pm.HalfNormal, 'sv', tau=2**-2, value=1, depends=self.depends['sv'])
         if 'sz' in include:
             knodes['sz_bottom'] = Knode(pm.Beta, 'sz', alpha=1, beta=3, value=0.01, depends=self.depends['sz'])
         if 'st' in include:
-            knodes['st_bottom'] = Knode(pm.HalfNormal, 'st', tau=0.3**-2, value=0.01, depends=self.depends['st'])
+            knodes['st_bottom'] = Knode(pm.HalfNormal, 'st', tau=0.3**-2, value=0.001, depends=self.depends['st'])
         if 'z' in self.include:
             knodes.update(self.create_family_invlogit('z', value=.5, g_tau=0.5**-2, var_S=0.05))
         if 'p_outlier' in include:
