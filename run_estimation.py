@@ -355,7 +355,7 @@ if __name__ == "__main__":
                            stat=stat, plot_type=plot_type,
                            figname='group_' + figname, savefig=savefig)
 
-            utils.likelihood_of_detection(data, savefig=savefig)
+            utils.likelihood_of_detection(data, plot_type=plot_type, savefig=savefig)
 
         if run_priors:
             idx = ~np.isnan(data['50q'])

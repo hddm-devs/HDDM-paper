@@ -59,20 +59,8 @@ def select(stats, param_names, depends_on, subj=True, require=None, estimators=N
 
 
 def plot_exp(data, stat, plot_type, figname, savefig):
-    if plot_type == 'subjs':
-        level_name = 'n_subjs'
-        xlabel = 'subjs'
-    elif plot_type == 'trials':
-        level_name = 'n_trials'
-        xlabel = 'trials'
-    elif plot_type == 'regress':
-        level_name = 'n_trials'
-        xlabel = 'trials'
-    elif plot_type == 'priors':
-        level_name = 'n_trials'
-        xlabel = 'trials'
-    else:
-        raise ValueError('unknown plot_type')
+
+    level_name, xlabel = get_levelname_and_xlabel(plot_type)
     grouped = data.Err.dropna().groupby(level=(level_name, 'estimation', 'knode')).agg(stat)
     n_params = len(grouped.groupby(level=('knode',)).groups.keys())
 
@@ -214,15 +202,16 @@ def likelihood_of_detection_in_regression(data, subj, savefig):
         plt.savefig(title + '.svg')
 
 
-def likelihood_of_detection(data, savefig):
+def likelihood_of_detection(data, plot_type, savefig):
 
+    level_name, xlabel = get_levelname_and_xlabel(plot_type)
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
     #HDDM2 likelihood
     hddm2_shift = data.xs(['HDDM2', 'v_shift'], level=['estimation','param'])
     detect = hddm2_shift['2.5q'] > 0
-    grouped = detect.groupby(level='n_trials').agg(np.mean)
+    grouped = detect.groupby(level=level_name).agg(np.mean)
     ax.errorbar(grouped.index.values,
                 grouped, label='HDDM', lw=2.,
                 marker='o')
@@ -230,7 +219,7 @@ def likelihood_of_detection(data, savefig):
     # #HDDM Single
     # hddm2_shift = data.xs('HDDM2Single', level='estimation').select(lambda x:'v_shift_subj' in x[-1])
     # detect = hddm2_shift['2.5q'] > 0
-    # grouped = detect.groupby(level='n_trials').agg(np.mean)
+    # grouped = detect.groupby(level=level_name).agg(np.mean)
     # ax.errorbar(grouped.index.values,
     #             grouped, label='HDDMSingle', lw=2.,
     #             marker='o')
@@ -238,14 +227,14 @@ def likelihood_of_detection(data, savefig):
 
     for method in ['Quantiles_subj', 'ML', 'HDDM2Single', 'HDDM2']:
         shift = data.xs(method, level='estimation').select(lambda x:'v_subj' in x[-1])
-        res_ttest = shift.estimate.groupby(level=['n_trials', 'param_seed']).agg(subj_ttest)
-        grouped = res_ttest.groupby(level='n_trials').agg(np.mean)
+        res_ttest = shift.estimate.groupby(level=[level_name, 'param_seed']).agg(subj_ttest)
+        grouped = res_ttest.groupby(level=level_name).agg(np.mean)
         ax.errorbar(grouped.index.values,
                     grouped, label=method, lw=2.,
                     marker='o')
 
 
-    ax.set_xlabel('trials')
+    ax.set_xlabel(xlabel)
     ax.set_ylabel('prob of detection')
     plt.legend(loc=0)
     title = 'likelihood of detection'
@@ -269,3 +258,21 @@ def subj_ttest(data, threshold=0.025):
     t_res, p_value = ttest_rel(c0.values, c1.values)
     return p_value < threshold
 
+
+def get_levelname_and_xlabel(plot_type):
+    if plot_type == 'subjs':
+        level_name = 'n_subjs'
+        xlabel = 'subjs'
+    elif plot_type == 'trials':
+        level_name = 'n_trials'
+        xlabel = 'trials'
+    elif plot_type == 'regress':
+        level_name = 'n_trials'
+        xlabel = 'trials'
+    elif plot_type == 'priors':
+        level_name = 'n_trials'
+        xlabel = 'trials'
+    else:
+        raise ValueError('unknown plot_type')
+
+    return level_name, xlabel
