@@ -12,6 +12,7 @@ except IOError:
    pass
 import numpy as np
 import pandas as pd
+from scipy.stats import pearsonr
 from scipy.stats import ttest_rel
 
 #utils.one_vs_others(utils.select(data, include, depends_on= {'v': ['c0', 'c1', 'c2']}, subj=False, require=lambda x:x[2]==3 and x[1]==20, estimators=estimators), 'HDDMGamma')
@@ -71,9 +72,6 @@ def plot_exp(data, stat, plot_type, figname, savefig):
     for i, (param_name, param_data) in enumerate(grouped.groupby(level=('knode',))):
         ax = grid[i]
         ax.set_ylabel(param_name)
-#        ax.set_ylabel(PARAM_NAMES[param_name])
-#        ax.set_xlim(2, 30)
-#        ax.set_yscale('log')
         for est_name, est_data in param_data.groupby(level=['estimation']):
             ax.errorbar(est_data.index.get_level_values(level_name),
                         est_data, label=est_name, lw=2.,
@@ -276,3 +274,38 @@ def get_levelname_and_xlabel(plot_type):
         raise ValueError('unknown plot_type')
 
     return level_name, xlabel
+
+def small_correlation_test(data, rho, iter=100):
+    """
+    funtion used by correlation test
+    """
+    randn = np.random.randn
+    r = [pearsonr(rho*data.truth + np.sqrt(1-rho**2)*randn(len(data))*0.2, data.estimate)[1] < 0.05 for x in range(iter)]
+    return np.mean(r)
+
+def correlation_test(data, plot_type, param='a', effect=0.5, iter=100, savefig=False):
+
+    level_name, xlabel = get_levelname_and_xlabel(plot_type)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    corr = lambda x,rho=effect, iter=iter: small_correlation_test(x, rho, iter)
+
+    for method in ['Quantiles_subj', 'ML', 'HDDM2Single', 'HDDM2']:
+        a_data = data.xs(method, level='estimation').select(lambda x:param + '_subj' in x[-1])
+        res_test = a_data.groupby(level=[level_name, 'param_seed']).apply(corr)
+        grouped = res_test.groupby(level=level_name).agg(np.mean)
+        ax.errorbar(grouped.index.values,
+                    grouped, label=method, lw=2.,
+                    marker='o')
+
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('prob of detection')
+    plt.legend(loc=0)
+    title = 'correlation detection'
+    plt.title(title)
+
+    if savefig:
+        plt.savefig(title + '.png')
+        plt.savefig(title + '.svg')
+
