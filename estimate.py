@@ -20,8 +20,9 @@ from scipy.optimize import fmin_powell
 from multiprocessing import Pool
 from pandas import DataFrame
 
-MODELS_WITH_REGRESSORS = ['HDDMRegressor', 'SingleRegressor', 'HDDM2', 'HDDM2Single']
-ESTIMATTIONS_WITH_REGRESSORS = ['EstimationHDDMRegressor', 'EstimationHDDM2', 'EstimationHDDM2Single', 'SingleRegressor']
+MODELS_WITH_REGRESSORS = ['HDDMRegressor', 'SingleRegressor', 'HDDM2', 'HDDM2Single', 'MLRegressor']
+ESTIMATTIONS_WITH_REGRESSORS = ['EstimationHDDMRegressor', 'EstimationHDDM2', 'EstimationHDDM2Single',
+                                'SingleRegressor', 'SingleRegOptimization']
 
 
 # For each method that you would like to check you need do create a ass that inherits from
@@ -170,6 +171,7 @@ def compute_single_v1(v0, shift, name):
 
     return pd.DataFrame(pd.Series(s), columns=[name]).T
 
+#HDDM with 2 conditions estimation
 class EstimationHDDM2(EstimationHDDMBase):
 
     def __init__(self, data, **kwargs):
@@ -318,7 +320,7 @@ class EstimationSingleMAPoutliers(EstimationSingleMAP):
 class EstimationSingleOptimization(Estimation):
 
     def __init__(self, data, **kwargs):
-        super(self.__class__, self).__init__(data, **kwargs)
+        super(EstimationSingleOptimization, self).__init__(data, **kwargs)
 
         #create an HDDM model for each subject
         grouped_data = data.groupby('subj_idx')
@@ -347,6 +349,19 @@ class EstimationSingleOptimization(Estimation):
                 values_tuple[i_value] = (name, float(node_row['node'].value))
             stats.update(dict(values_tuple))
         return pd.Series(stats)
+
+#single  Regression Estimation
+class SingleRegOptimization(EstimationSingleOptimization):
+
+    def __init__(self, data, **kwargs):
+        Estimation.__init__(self, data, **kwargs)
+
+        #create an HDDM model for each subject
+        grouped_data = data.groupby('subj_idx')
+        self.models = []
+        for subj_idx, subj_data in grouped_data:
+            model = HDDMRegressor(subj_data.to_records(), is_group_model=False, **kwargs)
+            self.models.append(model)
 
 
 #HDDM Estimation

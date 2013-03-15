@@ -105,6 +105,11 @@ def run_experiments(n_subjs=(12,), n_trials=(10, 40, 100), n_params=5, n_dataset
         opt_params['method'] = 'chisquare'
         estimator_dict['Quantiles_group'] = OrderedDict([('estimator', est.EstimationGroupOptimization), ('params', opt_params)])
 
+    if 'MLRegressor' in estimators:
+        opt_params = deepcopy(optimizations_params)
+        opt_params['method'] = 'ML'
+        estimator_dict['MLRegressor'] = OrderedDict([('estimator', est.SingleRegOptimization), ('params', opt_params)])
+
     n_subjs_results = {}
     for cur_subjs in n_subjs:
         n_trials_results = {}
