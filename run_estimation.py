@@ -346,7 +346,7 @@ if __name__ == "__main__":
             else:
                 plot_type = 'trials'
 
-            estimators = ['HDDMGamma', 'HDDM2', 'HDDM2Single', 'Quantiles_subj']
+            estimators = ['HDDMGamma', 'HDDM2', 'HDDM2Single', 'Quantiles_subj', 'ML']
             utils.plot_exp(select(data, params, depends_on=depends_on, subj=True, estimators=estimators),
                            stat=stat, plot_type=plot_type,
                            figname='single_' + figname, savefig=savefig)

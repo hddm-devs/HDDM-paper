@@ -29,7 +29,7 @@ class HDDMGamma(HDDMBase):
                         left = 0
                     else:
                         left = None
-                    self.mc.use_step_method(steps.SliceStep, node, width=slice_widths[knode_name],
+                    self.mc.use_step_method(steps.SliceStep, node, width=slice_widths.get(knode_name,1),
                                             left=left, maxiter=1000)
 
 

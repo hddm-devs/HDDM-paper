@@ -5,6 +5,21 @@ import scipy
 import pandas as pd
 from copy import deepcopy
 
+
+
+def gen_regression_rts(size, reg_outcomes, p_outlier=0, **params_dict):
+
+    i_params = deepcopy(params_dict)
+    sampled_rts = pd.DataFrame(np.zeros((size, 2)), columns=['rt', 'response'])
+    for i_sample in xrange(len(sampled_rts)):
+        #get current params
+        for p in reg_outcomes:
+            i_params[p] = params_dict[p][i_sample]
+        #sample
+        sampled_rts.ix[i_sample] = hddm.generate.gen_rts(size=1, method='drift', dt=1e-3, **i_params).values
+    return sampled_rts
+
+
 def gen_regression_data(params, subj_noise, share_noise = ('a','v','t','st','sz','sv','z', 'v_slope', 'v_inter'), size=50,
                         subjs=1, exclude_params=(), **kwargs):
 
@@ -54,13 +69,12 @@ def gen_regression_data(params, subj_noise, share_noise = ('a','v','t','st','sz'
       wfpt_params['v'] = (effect*x1 + np.sqrt(1-effect**2)*x2) + subj_params['v_inter'];
 
       #generate data
-      subj_data, _ = kabuki.generate.gen_rand_data(hddm.models.hddm_regression.wfpt_reg_like, wfpt_params,
+      subj_data, _ = kabuki.generate.gen_rand_data(gen_regression_rts, wfpt_params,
                                                         size=size,
                                                         check_valid_func=hddm.utils.check_params_valid,
                                                         bounds=bounds, share_noise=share_noise, **kwargs)
 
       #fix data a little bit
-      subj_data = pd.DataFrame(hddm.generate.kabuki_data_to_hddm_data(subj_data))
       subj_data['cov'] = x1
       subj_data['subj_idx'] = i_subj
 

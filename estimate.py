@@ -490,7 +490,7 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
         params['reg_outcomes'] = 'v'
         data, group_params = genreg.gen_regression_data(params, **kw_dict['data'])
         group_params = {'c1': group_params}
-        subj_noise = kw_dict['reg_data']['subj_noise']
+        subj_noise = kw_dict['data']['subj_noise']
     else:
         data, group_params = hddm.generate.gen_rand_data(params, **kw_dict['data'])
         if kw_dict['data']['subjs'] == 1 and n_conds == 1:
@@ -508,10 +508,10 @@ def single_recovery_fixed_n_trials(estimation, kw_dict, raise_errors=True, actio
             cond[data.condition == 'c1'] = 1
             data['condition'] = cond
 
-        if n_conds > 1:
-            depends_on = {'v': 'condition'}
-        else:
-            depends_on = {}
+    if n_conds > 1:
+        depends_on = {'v': 'condition'}
+    else:
+        depends_on = {}
 
     group_params = put_all_params_in_a_single_dict(joined_params, group_params, subj_noise, depends_on=depends_on)
 
