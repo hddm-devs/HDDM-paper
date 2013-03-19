@@ -332,12 +332,13 @@ if __name__ == "__main__":
 
     if result.analyze:
         if run_subjs or run_trials:
-            idx = ~np.isnan(data['50q'])
-            data['estimate'][idx] = data['50q'][idx]
+            # idx = ~np.isnan(data['50q'])
+            # data['estimate'][idx] = data['50q'][idx]
             # include = ['v','a']
             params = set(['a','v','t']).union(args.args()['include'])
             depends_on= {'v': ['c0', 'c1']}
-            stat=np.mean
+            # stat = np.mean
+            stat = utils.upper_trimmed_mean
 
             #create figname
             figname = stat.__name__
@@ -359,10 +360,10 @@ if __name__ == "__main__":
             utils.likelihood_of_detection(data, plot_type=plot_type, savefig=savefig)
 
         if run_priors:
-            idx = ~np.isnan(data['50q'])
-            data['estimate'][idx] = data['50q'][idx]
+            # idx = ~np.isnan(data['50q'])
+            # data['estimate'][idx] = data['50q'][idx]
 
-            stat=np.mean
+            stat=utils.upper_trimmed_mean
             estimators = ['HDDMGamma', 'ML', 'Quantiles_subj']
             include = ['a','v','t','z']
             # include = ['sz','st', 'sv']
