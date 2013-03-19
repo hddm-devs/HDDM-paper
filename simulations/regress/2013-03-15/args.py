@@ -15,7 +15,7 @@ def args():
     equal_seeds=True
     include=['sv']
     depends_on = {}
-    factor3_vals=[0.1, 0.5]
+    factor3_vals=[0.1, 0.3, 0.5]
     subj_noise = OrderedDict([('v', 0.2), ('a', 0.2), ('t', 0.1)])
     if 'z' in include:
         subj_noise['z'] = .1
