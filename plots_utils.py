@@ -13,7 +13,7 @@ except IOError:
 import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
-from scipy.stats import ttest_rel
+from scipy.stats import ttest_rel, ttest_1samp
 
 #utils.one_vs_others(utils.select(data, include, depends_on= {'v': ['c0', 'c1', 'c2']}, subj=False, require=lambda x:x[2]==3 and x[1]==20, estimators=estimators), 'HDDMGamma')
 
@@ -171,28 +171,51 @@ def one_vs_others(data, main_estimator, tag='', gridsize=100, save=False, fig=No
 
     return fig
 
-def likelihood_of_detection_in_regression(data, subj, savefig):
-    data = select(data, ['v_slope'], depends_on={}, subj=subj)
-    detect = data['2.5q'] > 0
-    grouped = detect.dropna().groupby(level=('n_trials', 'p_outliers', 'estimation')).agg(np.mean)
+def likelihood_of_detection(data, plot_type, savefig=False):
+
+    level_name, xlabel = get_levelname_and_xlabel(plot_type)
+    if plot_type == 'regress':
+        h_method='HDDMRegressor'
+        h_param = 'v_slope'
+        ttest_methods = ['MLRegressor', 'SingleRegressor']
+        ttest_param = 'v_slope_subj'
+        subj_ttest = subj_ttest_1samp
+        ncols = 3
+    else:
+        h_method = 'HDDM2'
+        h_param = 'v_shift'
+        ttest_methods = ['Quantiles_subj', 'ML', 'HDDM2Single', 'HDDM2']
+        ttest_param = 'v_subj'
+        subj_ttest = subj_ttest_rel
+        ncols = 1
 
     fig = plt.figure()
-    grid = Grid(fig, 111, nrows_ncols=(3, 1), add_all=True, share_all=False,
+    grid = Grid(fig, 111, nrows_ncols=(ncols, 1), add_all=True, share_all=False,
                 label_mode='L', share_x=True, share_y=False, axes_pad=.25)
-    for i_effect, (effect, ef_data) in enumerate(grouped.groupby(level='p_outliers')):
+    for i_effect, (effect, ef_data) in enumerate(data.groupby(level='p_outliers')):
         ax = grid[i_effect]
-        for i_est, (est_name, est_data) in enumerate(ef_data.groupby(level='estimation')):
-            ax.errorbar(est_data.index.get_level_values('n_trials'),
-                        est_data, label=est_name, lw=2.,
+
+        #HDDM2 likelihood
+        hddm2_shift = ef_data.xs([h_method, h_param], level=['estimation','param'])
+        detect = hddm2_shift['2.5q'] > 0
+        grouped = detect.groupby(level=level_name).agg(np.mean)
+        ax.errorbar(grouped.index.values,
+                    grouped, label='HDDM', lw=2.,
+                    marker='o')
+
+        for method in ttest_methods:
+            shift = ef_data.xs(method, level='estimation').select(lambda x:ttest_param in x[-1])
+            res_ttest = shift.estimate.groupby(level=[level_name, 'param_seed']).agg(subj_ttest)
+            grouped = res_ttest.groupby(level=level_name).agg(np.mean)
+            ax.errorbar(grouped.index.values,
+                        grouped, label=method, lw=2.,
                         marker='o')
 
-    ax.set_xlabel('trials')
+
+    ax.set_xlabel(xlabel)
     ax.set_ylabel('prob of detection')
     plt.legend(loc=0)
-    if subj:
-        title = 'regress_single'
-    else:
-        title = 'regress_group'
+    title = 'likelihood of detection'
     plt.suptitle(title)
 
     if savefig:
@@ -200,52 +223,9 @@ def likelihood_of_detection_in_regression(data, subj, savefig):
         plt.savefig(title + '.svg')
 
 
-def likelihood_of_detection(data, plot_type, savefig):
-
-    level_name, xlabel = get_levelname_and_xlabel(plot_type)
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-
-    #HDDM2 likelihood
-    hddm2_shift = data.xs(['HDDM2', 'v_shift'], level=['estimation','param'])
-    detect = hddm2_shift['2.5q'] > 0
-    grouped = detect.groupby(level=level_name).agg(np.mean)
-    ax.errorbar(grouped.index.values,
-                grouped, label='HDDM', lw=2.,
-                marker='o')
-
-    # #HDDM Single
-    # hddm2_shift = data.xs('HDDM2Single', level='estimation').select(lambda x:'v_shift_subj' in x[-1])
-    # detect = hddm2_shift['2.5q'] > 0
-    # grouped = detect.groupby(level=level_name).agg(np.mean)
-    # ax.errorbar(grouped.index.values,
-    #             grouped, label='HDDMSingle', lw=2.,
-    #             marker='o')
-
-
-    for method in ['Quantiles_subj', 'ML', 'HDDM2Single', 'HDDM2']:
-        shift = data.xs(method, level='estimation').select(lambda x:'v_subj' in x[-1])
-        res_ttest = shift.estimate.groupby(level=[level_name, 'param_seed']).agg(subj_ttest)
-        grouped = res_ttest.groupby(level=level_name).agg(np.mean)
-        ax.errorbar(grouped.index.values,
-                    grouped, label=method, lw=2.,
-                    marker='o')
-
-
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel('prob of detection')
-    plt.legend(loc=0)
-    title = 'likelihood of detection'
-    plt.title(title)
-
-    if savefig:
-        plt.savefig(title + '.png')
-        plt.savefig(title + '.svg')
-
-
-def subj_ttest(data, threshold=0.025):
+def subj_ttest_rel(data, threshold=0.025):
     """
-    compute ttest on results of Quantiles_subj:
+    compute ttest on results of single subjects models with 2 conditions
     Output:
         is_rejected <boolean> : whether the null hypothesis was rejected
     """
@@ -256,6 +236,14 @@ def subj_ttest(data, threshold=0.025):
     t_res, p_value = ttest_rel(c0.values, c1.values)
     return p_value < threshold
 
+def subj_ttest_1samp(data, threshold=0.025):
+    """
+    compute ttest on results of single subjects models used in regression experiment
+    Output:
+        is_rejected <boolean> : whether the null hypothesis was rejected
+    """
+    t_res, p_value = ttest_1samp(data.values, 0)
+    return p_value < threshold
 
 def get_levelname_and_xlabel(plot_type):
     if plot_type == 'subjs':

@@ -314,10 +314,6 @@ if __name__ == "__main__":
     if result.load:
         data = pd.load(fname)
         data.index.names[-1] = 'param'
-        if run_regress:
-            data['estimate'] = np.float64(data['estimate'])
-            data = est.add_group_stat_to_SingleRegressor(data)
-
         data['estimate'] = np.float64(data['estimate'])
 
         try:
@@ -380,15 +376,8 @@ if __name__ == "__main__":
                 utils.plot_exp(selected_data.xs(i, level='p_outliers'), stat=stat, plot_type=run_type,
                                 figname='_' + figname, savefig=savefig)
 
-
-
         if run_regress:
-            stat=np.median
-            utils.likelihood_of_detection_in_regression(data, subj=False, savefig=savefig)
-            utils.likelihood_of_detection_in_regression(data, subj=True, savefig=savefig)
-            for i in [0.1, 0.3, 0.5]:
-                utils.plot_exp(select(data, ['v_slope'], depends_on={}, subj=True).xs(i, level='p_outliers') , stat=stat, plot_type='regress', figname='single', savefig=savefig)
-                utils.plot_exp(select(data, ['v_slope'], depends_on={}, subj=False).xs(i, level='p_outliers'), stat=stat, plot_type='regress', figname='group', savefig=savefig)
+            utils.likelihood_of_detection(data, plot_type='regress', savefig=savefig)
 
         if run_recovery:
 #            one_vs_others(select(recovery_data, include, subj=False), main_estimator='HDDMTruncated', tag='group'+str(include), save=False)
