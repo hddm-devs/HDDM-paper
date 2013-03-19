@@ -8,3 +8,6 @@ experiments were run using:
 HDDM - branch comp_paper (commit: f20b96aaaee51f6b4341bf2bba2a3ad4f64a8a95)
 kabuki - branch comp_paper (commit: b85e09cd1bfa6df31e874ce40c9bea67507d6749)
 
+
+-- Update 2013-03-19
+now using kabuki: 9d47fbbbf7bc
