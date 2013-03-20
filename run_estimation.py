@@ -364,7 +364,7 @@ if __name__ == "__main__":
 
             var_params = ['v_var', 'a_var', 't_var']
             utils.plot_exp(select(data, var_params, depends_on=depends_on, subj=False, estimators=estimators),
-                           stat=stat, plot_type=plot_type,
+                           stat=np.mean, plot_type=plot_type,
                            figname='variance_err_' + figname, savefig=savefig)
 
         if run_priors:

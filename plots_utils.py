@@ -18,11 +18,9 @@ from scipy.stats import ttest_rel, ttest_1samp, scoreatpercentile
 #utils.one_vs_others(utils.select(data, include, depends_on= {'v': ['c0', 'c1', 'c2']}, subj=False, require=lambda x:x[2]==3 and x[1]==20, estimators=estimators), 'HDDMGamma')
 
 
-def upper_trimmed_mean(a, percentile=5):
-    limit = scoreatpercentile(a,5, interpolation_method='higher')
+def upper_trimmed_mean(a, percentile=95):
+    limit = scoreatpercentile(a,percentile, interpolation_method='higher')
     return np.mean(a[a < limit])
-
-
 
 def select(stats, param_names, depends_on, subj=True, require=None, estimators=None):
 
