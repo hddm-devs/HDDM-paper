@@ -763,20 +763,21 @@ def get_knode_group_node_name(full_name):
         return full_name
 
     else:
-        name, rest = full_name.split('_')
+        name, rest = full_name.split('_subj')
         if '(' in rest:
-            name += rest[4:].split('.')[0]
+            name += rest.split('.')[0]
         return name
 
 
-def add_group_stat_to_SingleOptimation(data, stat):
+def add_group_stat_to_SingleOptimation(data, stat, estimators=('HDDM2Single', 'Quantiles_subj', 'ML')):
 
     data = data.copy()
-    sdata = data.select(lambda x:(x[3] == 'Quantiles_subj') and ('subj' in x[-1]))
-    groups = sdata.groupby(lambda x:tuple(list(x[:6]) + [get_knode_group_node_name(x[-1])]))
-    for (t_idx, t_data) in groups:
-        group_estimate = stat(t_data['estimate'])
-        data.set_value(t_idx, col='estimate', value=group_estimate)
+    for method in estimators:
+        sdata = data.select(lambda x:(x[3] == method) and ('subj' in x[-1]))
+        groups = sdata.groupby(lambda x:tuple(list(x[:6]) + [get_knode_group_node_name(x[-1])]))
+        for (t_idx, t_data) in groups:
+            group_estimate = stat(t_data['estimate'])
+            data.set_value(t_idx, col='estimate', value=group_estimate)
 
     data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))
 
@@ -817,3 +818,22 @@ def geweke_test_problem(model):
             print "Geweke problem was found in: %s" % name
             return True
     return False
+
+def add_var_to_SingleOptimation(data, subj_noise, estimators=('Quantiles_subj', 'ML', 'HDDM2Single')):
+    data = data.copy()
+
+    params_var = {}
+    params = pd.DataFrame(columns=['a','v','t'], index=['std_name', 'subj_name', 'truth'])
+    params['a'] = ['a_var', 'a_subj', subj_noise['a']]
+    params['t'] = ['t_var', 't_subj', subj_noise['t']]
+    params['v'] = ['v_var', 'v_subj(c0)', subj_noise['v']]
+
+    for method in estimators:
+        for param, tt in params.iteritems():
+            sdata = data.select(lambda x:x[3] == method and  x[-1].startswith(tt['subj_name'])).estimate
+            err_std = lambda s,true_value=tt['truth']: np.std(s - true_value, ddof=1)
+            groups = sdata.groupby(lambda x:x[:6]).agg(err_std)
+            groups.rename(lambda x:tuple(list(x) + [tt['std_name']]), inplace=True)
+            data['Err'].ix[groups.index] = groups
+
+    return data

@@ -9,6 +9,7 @@ import os
 import plots_utils as utils
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from plots_utils import select
 from IPython import parallel
@@ -307,8 +308,9 @@ if __name__ == "__main__":
         if action == 'collect':
             data = merge(exp)
             if not run_regress:
-                data = est.add_group_stat_to_SingleOptimation(data, np.mean)
-                data = est.use_group_truth_value_for_subjects_in_HDDMsharedVar(data)
+                estimators=('HDDM2Single', 'Quantiles_subj', 'ML')
+                data = est.add_group_stat_to_SingleOptimation(data, np.mean, estimators=estimators)
+                data = est.add_var_to_SingleOptimation(data, exp_kwargs['subj_noise'], estimators=estimators)
             data.save(fname)
 
     if result.load:
@@ -348,16 +350,22 @@ if __name__ == "__main__":
             else:
                 plot_type = 'trials'
 
-            estimators = ['HDDMGamma', 'HDDM2', 'HDDM2Single', 'Quantiles_subj', 'ML']
+            estimators = ['HDDM2', 'HDDM2Single', 'Quantiles_subj', 'ML']
             utils.plot_exp(select(data, params, depends_on=depends_on, subj=True, estimators=estimators),
                            stat=stat, plot_type=plot_type,
                            figname='single_' + figname, savefig=savefig)
-            estimators = ['HDDMGamma', 'HDDM2', 'Quantiles_group']
+
+            estimators += ['Quantiles_group']
             utils.plot_exp(select(data, params, depends_on=depends_on, subj=False, estimators=estimators),
                            stat=stat, plot_type=plot_type,
                            figname='group_' + figname, savefig=savefig)
 
             utils.likelihood_of_detection(data, plot_type=plot_type, savefig=savefig)
+
+            var_params = ['v_var', 'a_var', 't_var']
+            utils.plot_exp(select(data, var_params, depends_on=depends_on, subj=False, estimators=estimators),
+                           stat=stat, plot_type=plot_type,
+                           figname='variance_err_' + figname, savefig=savefig)
 
         if run_priors:
             # idx = ~np.isnan(data['50q'])
@@ -402,4 +410,5 @@ if __name__ == "__main__":
 
 #            one_vs_others(select(outliers_data, include, depends_on={},subj=True), main_estimator='SingleMAPoutliers', tag='subj'+str(include), save=savefig)
 
+    plt.show()
     sys.exit(0)
