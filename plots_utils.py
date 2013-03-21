@@ -22,10 +22,12 @@ def upper_trimmed_mean(a, percentile=95):
     limit = scoreatpercentile(a,percentile, interpolation_method='higher')
     return np.mean(a[a < limit])
 
-def trimmed_mean(a, lper=2.5, uper=97.5):
-    lb = scoreatpercentile(a,lper, interpolation_method='higher')
-    ub = scoreatpercentile(a,uper, interpolation_method='lower')
-    return np.mean(a[(a < ub) & (a > lb)])
+def trimmed_mean(a, per=5):
+    n = int(np.ceil(len(a)*per/100))
+    a = a.copy()
+    a.sort()
+
+    return np.mean(a[:-n])
 
 def select(stats, param_names, depends_on, subj=True, require=None, estimators=None):
 

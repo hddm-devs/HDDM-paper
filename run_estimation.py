@@ -343,7 +343,7 @@ if __name__ == "__main__":
             params = set(['a','v','t']).union(args.args()['include'])
             depends_on= {'v': ['c0', 'c1']}
             # stat = np.mean
-            stat = utils.upper_trimmed_mean
+            stat = utils.trimmed_mean
 
             #create figname
             figname = stat.__name__
@@ -366,7 +366,7 @@ if __name__ == "__main__":
             utils.likelihood_of_detection(data, plot_type=plot_type, savefig=savefig)
 
             var_params = ['v_var', 'a_var', 't_var']
-            stat = np.mean
+            stat = utils.trimmed_mean
             utils.plot_exp(select(data, var_params, depends_on=depends_on, subj=False, estimators=estimators),
                            stat=stat, plot_type=plot_type, col='err',
                            figname='variance_err_' + stat.__name__, savefig=savefig)
