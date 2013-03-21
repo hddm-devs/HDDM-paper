@@ -752,8 +752,6 @@ def use_group_truth_value_for_subjects_in_HDDMsharedVar(data):
             estimate_value = data.get_value(group_idx, col='estimate')
             data.set_value(t_idx, col='estimate', value=estimate_value)
 
-    data['Err'] = np.abs(np.asarray((data['truth'] - data['estimate']), dtype=np.float32))
-
     return data
 
 def get_knode_group_node_name(full_name):
@@ -819,21 +817,21 @@ def geweke_test_problem(model):
             return True
     return False
 
-def add_var_to_SingleOptimation(data, subj_noise, estimators=('Quantiles_subj', 'ML', 'HDDM2Single')):
+def add_var_to_SingleOptimation(data, estimators=('Quantiles_subj', 'ML', 'HDDM2Single')):
     data = data.copy()
 
     params_var = {}
-    params = pd.DataFrame(columns=['a','v','t'], index=['std_name', 'subj_name', 'truth'])
-    params['a'] = ['a_var', 'a_subj', subj_noise['a']]
-    params['t'] = ['t_var', 't_subj', subj_noise['t']]
-    params['v'] = ['v_var', 'v_subj(c0)', subj_noise['v']]
+    params = pd.DataFrame(columns=['a','v','t'], index=['std_name', 'subj_name'])
+    params['a'] = ['a_var', 'a_subj']
+    params['t'] = ['t_var', 't_subj']
+    params['v'] = ['v_var', 'v_subj(c0)']
 
     for method in estimators:
         for param, tt in params.iteritems():
             sdata = data.select(lambda x:x[3] == method and  x[-1].startswith(tt['subj_name'])).estimate
-            err_std = lambda s,true_value=tt['truth']: np.std(s - true_value, ddof=1)
-            groups = sdata.groupby(lambda x:x[:6]).agg(err_std)
+            std = lambda s: np.std(s, ddof=1)
+            groups = sdata.groupby(lambda x:x[:6]).agg(std)
             groups.rename(lambda x:tuple(list(x) + [tt['std_name']]), inplace=True)
-            data['Err'].ix[groups.index] = groups
+            data['estimate'].ix[groups.index] = groups
 
     return data

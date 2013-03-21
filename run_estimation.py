@@ -310,7 +310,10 @@ if __name__ == "__main__":
             if not run_regress:
                 estimators=('HDDM2Single', 'Quantiles_subj', 'ML')
                 data = est.add_group_stat_to_SingleOptimation(data, np.mean, estimators=estimators)
-                data = est.add_var_to_SingleOptimation(data, exp_kwargs['subj_noise'], estimators=estimators)
+                data = est.add_var_to_SingleOptimation(data, estimators=estimators)
+                data['err'] = np.asarray((data['estimate'] - data['truth']), dtype=np.float32)
+                data['abserr'] = np.abs(data['err'])
+
             data.save(fname)
 
     if result.load:
@@ -363,9 +366,10 @@ if __name__ == "__main__":
             utils.likelihood_of_detection(data, plot_type=plot_type, savefig=savefig)
 
             var_params = ['v_var', 'a_var', 't_var']
+            stat = np.mean
             utils.plot_exp(select(data, var_params, depends_on=depends_on, subj=False, estimators=estimators),
-                           stat=np.mean, plot_type=plot_type,
-                           figname='variance_err_' + figname, savefig=savefig)
+                           stat=stat, plot_type=plot_type, col='err',
+                           figname='variance_err_' + stat.__name__, savefig=savefig)
 
         if run_priors:
             # idx = ~np.isnan(data['50q'])

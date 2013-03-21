@@ -22,6 +22,11 @@ def upper_trimmed_mean(a, percentile=95):
     limit = scoreatpercentile(a,percentile, interpolation_method='higher')
     return np.mean(a[a < limit])
 
+def trimmed_mean(a, lper=2.5, uper=97.5):
+    lb = scoreatpercentile(a,lper, interpolation_method='higher')
+    ub = scoreatpercentile(a,uper, interpolation_method='lower')
+    return np.mean(a[(a < ub) & (a > lb)])
+
 def select(stats, param_names, depends_on, subj=True, require=None, estimators=None):
 
     if isinstance(param_names, str):
@@ -64,10 +69,10 @@ def select(stats, param_names, depends_on, subj=True, require=None, estimators=N
     return pd.concat(extracted, names=['knode'])
 
 
-def plot_exp(data, stat, plot_type, figname, savefig):
+def plot_exp(data, stat, plot_type, figname, savefig, col='abserr'):
 
     level_name, xlabel = get_levelname_and_xlabel(plot_type)
-    grouped = data.Err.dropna().groupby(level=(level_name, 'estimation', 'knode')).agg(stat)
+    grouped = data[col].dropna().groupby(level=(level_name, 'estimation', 'knode')).agg(stat)
     n_params = len(grouped.groupby(level=('knode',)).groups.keys())
 
     fig = plt.figure(figsize=(8, n_params*3))
