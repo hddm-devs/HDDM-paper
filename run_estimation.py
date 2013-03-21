@@ -309,6 +309,7 @@ if __name__ == "__main__":
             data = merge(exp)
             if not run_regress:
                 estimators=('HDDM2Single', 'Quantiles_subj', 'ML')
+                data = pd.DataFrame(data.values, index=data.index, columns=data.columns)
                 data = est.add_group_stat_to_SingleOptimation(data, np.mean, estimators=estimators)
                 data = est.add_var_to_SingleOptimation(data, estimators=estimators)
                 data['err'] = np.asarray((data['estimate'] - data['truth']), dtype=np.float32)
