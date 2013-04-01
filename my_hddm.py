@@ -30,7 +30,7 @@ class HDDMGamma(HDDMBase):
                     else:
                         left = None
                     self.mc.use_step_method(steps.SliceStep, node, width=slice_widths.get(knode_name,1),
-                                            left=left, maxiter=1000)
+                                            left=left, maxiter=5000)
 
 
     def create_family_normal(self, name, value=0, g_mu=None,
