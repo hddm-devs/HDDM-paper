@@ -196,7 +196,7 @@ def likelihood_of_detection(data, plot_type, savefig=False):
     else:
         h_method = 'HDDM2'
         h_param = 'v_shift'
-        ttest_methods = ['Quantiles_subj', 'ML', 'HDDM2Single', 'HDDM2']
+        ttest_methods = ['Quantiles_subj', 'ML', 'HDDM2Single']
         ttest_param = 'v_subj'
         subj_ttest = subj_ttest_rel
         ncols = 1
