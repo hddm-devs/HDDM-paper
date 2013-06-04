@@ -354,6 +354,11 @@ if __name__ == "__main__":
             else:
                 plot_type = 'trials'
 
+
+            t_data = select(data, params, depends_on=depends_on, subj=True, estimators=['HDDM2','ML'])
+            utils.plot_errors(t_data, stat=utils.trimmed_2side_mean, plot_type=plot_type, savefig=savefig, 
+                        col='abserr', main='HDDM2', other='ML')
+
             estimators = ['HDDM2', 'HDDM2Single', 'Quantiles_subj', 'ML']
             utils.plot_exp(select(data, params, depends_on=depends_on, subj=True, estimators=estimators),
                            stat=stat, plot_type=plot_type,

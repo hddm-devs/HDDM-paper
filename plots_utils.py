@@ -26,8 +26,20 @@ def trimmed_mean(a, per=5):
     n = int(np.ceil(len(a)*per/100))
     a = a.copy()
     a.sort()
-
     return np.mean(a[:-n])
+
+def trimmed_2side_mean(a, per=5):
+    n = int(np.ceil(len(a)* ((per / 2.) / 100)))
+    a = a.copy()
+    a.sort()
+    return np.mean(a[n:-n])
+
+def trimmed_2side_ste(a, per=5):
+    n = int(np.ceil(len(a)* ((per / 2.) / 100)))
+    a = a.copy()
+    a.sort()
+    return np.std(a[n:-n]) / np.sqrt(len(a) - 2*n)
+
 
 def select(stats, param_names, depends_on, subj=True, require=None, estimators=None):
 
@@ -92,6 +104,41 @@ def plot_exp(data, stat, plot_type, figname, savefig, col='abserr'):
     ax.set_xlabel(xlabel)
     plt.legend(loc=0)
     title = '%s_exp_%s'%(plot_type, figname)
+    plt.suptitle(title)
+
+    if savefig:
+        plt.savefig(title + '.png')
+        plt.savefig(title + '.svg')
+
+
+
+def plot_errors(data, stat, plot_type, savefig, col='abserr', main='HDDM2', other='ML'):
+
+    if stat.func_name == 'mean':
+        err_stat = lambda a:np.std(a)/sqrt(len(a))
+        err_stat.func_name = 'ste'
+    elif stat.func_name == 'trimmed_2side_mean':
+        err_stat = trimmed_2side_ste
+
+
+    level_name, xlabel = get_levelname_and_xlabel(plot_type)
+    err = (data.xs(other,level='estimation') - data.xs(main,level='estimation'))[col].dropna()
+    grouped = err.groupby(level=(level_name, 'knode')).agg([stat, err_stat])
+    n_params = len(grouped.groupby(level=('knode',)).groups.keys())
+
+    fig = plt.figure(figsize=(8, n_params*3))
+    grid = Grid(fig, 111, nrows_ncols=(n_params, 1), add_all=True, share_all=False,
+                label_mode='L', share_x=True, share_y=False, axes_pad=.25)
+
+    for i, (param_name, param_data) in enumerate(grouped.groupby(level=('knode',))):
+        ax = grid[i]
+        ax.set_ylabel(param_name)
+        ax.errorbar(param_data.index.get_level_values(level_name),
+                    param_data[stat.func_name], yerr=param_data[err_stat.func_name], label=param_name, lw=2.,
+                    marker='o')
+
+    ax.set_xlabel(xlabel)
+    title = '%s_exp_%s'%(plot_type, 'errors')
     plt.suptitle(title)
 
     if savefig:
@@ -183,7 +230,7 @@ def one_vs_others(data, main_estimator, tag='', gridsize=100, save=False, fig=No
 
     return fig
 
-def likelihood_of_detection(data, plot_type, savefig=False):
+def likelihood_of_detection(data, plot_type, figname=None, savefig=False):
 
     level_name, xlabel = get_levelname_and_xlabel(plot_type)
     if plot_type == 'regress':
@@ -231,8 +278,10 @@ def likelihood_of_detection(data, plot_type, savefig=False):
     plt.suptitle(title)
 
     if savefig:
-        plt.savefig(title + '.png')
-        plt.savefig(title + '.svg')
+        if figname is None:
+            figname = title + " - " + plot_type
+        plt.savefig(figname + '.png')
+        plt.savefig(figname + '.svg')
 
 
 def subj_ttest_rel(data, threshold=0.025):
