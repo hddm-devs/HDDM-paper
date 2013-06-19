@@ -17,6 +17,12 @@ from scipy.stats import ttest_rel, ttest_1samp, scoreatpercentile
 
 #utils.one_vs_others(utils.select(data, include, depends_on= {'v': ['c0', 'c1', 'c2']}, subj=False, require=lambda x:x[2]==3 and x[1]==20, estimators=estimators), 'HDDMGamma')
 
+def binomial_ste(a):
+    p = a.mean()
+    return np.sqrt( p * (1- p) / len(a))
+
+def ste(a):
+    return np.std(a) / np.sqrt(len(a))
 
 def upper_trimmed_mean(a, percentile=95):
     limit = scoreatpercentile(a,percentile, interpolation_method='higher')
@@ -257,20 +263,20 @@ def likelihood_of_detection(data, plot_type, figname=None, savefig=False):
         #HDDM2 likelihood
         hddm2_shift = ef_data.xs([h_method, h_param], level=['estimation','param'])
         detect = hddm2_shift['2.5q'] > 0
-        grouped = detect.groupby(level=level_name).agg(np.mean)
+        grouped = detect.groupby(level=level_name).agg((np.mean, binomial_ste))
         ax.errorbar(grouped.index.values,
-                    grouped, label='HDDM', lw=2.,
+                    grouped['mean'], yerr=grouped['binomial_ste'], label='HDDM', lw=2.,
                     marker='o')
 
         for method in ttest_methods:
             shift = ef_data.xs(method, level='estimation').select(lambda x:ttest_param in x[-1])
             res_ttest = shift.estimate.groupby(level=[level_name, 'param_seed']).agg(subj_ttest)
-            grouped = res_ttest.groupby(level=level_name).agg(np.mean)
+            grouped = res_ttest.groupby(level=level_name).agg((np.mean, binomial_ste))
             ax.errorbar(grouped.index.values,
-                        grouped, label=method, lw=2.,
+                        grouped['mean'], yerr=grouped['binomial_ste'], label=method, lw=2.,
                         marker='o')
 
-
+        ax.set_ylim(-0.1,1.1)
     ax.set_xlabel(xlabel)
     ax.set_ylabel('prob of detection')
     plt.legend(loc=0)
