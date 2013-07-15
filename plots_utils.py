@@ -4,7 +4,7 @@ import time
 import argparse
 import sys
 import kabuki
-
+import scikits.bootstrap as bootstrap
 import matplotlib.pyplot as plt
 try:
     from mpl_toolkits.axes_grid1 import Grid
@@ -45,6 +45,13 @@ def trimmed_2side_ste(a, per=5):
     a = a.copy()
     a.sort()
     return np.std(a[n:-n]) / np.sqrt(len(a) - 2*n)
+
+def trimmed_2side_ci(a, per=5):
+    n = int(np.ceil(len(a)* ((per / 2.) / 100)))
+    a = a.copy()
+    a.sort()
+    a = a[n:-n]
+    return bootstrap.ci(a, np.mean, n_samples=10000)
 
 
 def select(stats, param_names, depends_on, subj=True, require=None, estimators=None):
@@ -125,11 +132,16 @@ def plot_errors(data, stat, plot_type, savefig, col='abserr', main='HDDM2', othe
         err_stat.func_name = 'ste'
     elif stat.func_name == 'trimmed_2side_mean':
         err_stat = trimmed_2side_ste
+        err_stat = trimmed_2side_ci
 
 
     level_name, xlabel = get_levelname_and_xlabel(plot_type)
     err = (data.xs(other,level='estimation') - data.xs(main,level='estimation'))[col].dropna()
-    grouped = err.groupby(level=(level_name, 'knode')).agg([stat, err_stat])
+    grouped = err.groupby(level=(level_name, 'knode')).agg([stat])
+    abs_ci = err.groupby(level=(level_name, 'knode')).apply(err_stat)
+    abs_ci = np.vstack(abs_ci.values)
+    grouped['low_ci'] = grouped[stat.func_name] - abs_ci[:,0]
+    grouped['high_ci'] = abs_ci[:,1] - grouped[stat.func_name]
     n_params = len(grouped.groupby(level=('knode',)).groups.keys())
 
     fig = plt.figure(figsize=(8, n_params*3))
@@ -140,8 +152,21 @@ def plot_errors(data, stat, plot_type, savefig, col='abserr', main='HDDM2', othe
         ax = grid[i]
         ax.set_ylabel(param_name)
         ax.errorbar(param_data.index.get_level_values(level_name),
-                    param_data[stat.func_name], yerr=param_data[err_stat.func_name], label=param_name, lw=2.,
+                    param_data[stat.func_name], yerr=param_data[['low_ci', 'high_ci']].values.T,
+                    label=param_name, lw=2.,
                     marker='o')
+        if param_name != 't':
+            ax.set_ylim(0, ax.get_ylim()[1])
+        else:
+            ax.set_ylim(-0.0002, ax.get_ylim()[1])
+
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        ax.spines['right'].set_color('none')
+        ax.spines['top'].set_color('none')
+        [x.label.set_fontsize(20) for x in ax.yaxis.get_major_ticks()]
+        [x.label.set_fontsize(20) for x in ax.xaxis.get_major_ticks()]
+
 
     ax.set_xlabel(xlabel)
     title = '%s_exp_%s'%(plot_type, 'errors')
@@ -266,7 +291,7 @@ def likelihood_of_detection(data, plot_type, figname=None, savefig=False):
         grouped = detect.groupby(level=level_name).agg((np.mean, binomial_ste))
         ax.errorbar(grouped.index.values,
                     grouped['mean'], yerr=grouped['binomial_ste'], label='HDDM', lw=2.,
-                    marker='o')
+                    marker='o', markersize=10)
 
         for method in ttest_methods:
             shift = ef_data.xs(method, level='estimation').select(lambda x:ttest_param in x[-1])
@@ -274,11 +299,15 @@ def likelihood_of_detection(data, plot_type, figname=None, savefig=False):
             grouped = res_ttest.groupby(level=level_name).agg((np.mean, binomial_ste))
             ax.errorbar(grouped.index.values,
                         grouped['mean'], yerr=grouped['binomial_ste'], label=method, lw=2.,
-                        marker='o')
+                        marker='o', markersize=10)
 
         ax.set_ylim(-0.1,1.1)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel('prob of detection')
+        [x.label.set_fontsize(20) for x in ax.yaxis.get_major_ticks()]
+        [x.label.set_fontsize(20) for x in ax.xaxis.get_major_ticks()]
+
+    ax.set_xlabel(xlabel, fontsize=20)
+    ax.set_ylabel('prob of detection', fontsize=20)
+
     plt.legend(loc=0)
     title = 'likelihood of detection'
     plt.suptitle(title)
